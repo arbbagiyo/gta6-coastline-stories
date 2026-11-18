@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coastline Stories — an original open-world crime game</title>
+<link rel="stylesheet" href="./styles.css">
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.min.js" } }
+</script>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="hud" class="hidden">
+  <div id="top-right">
+    <div id="stars">☆☆☆☆☆</div>
+    <div id="cash-label">$250</div>
+    <div id="clock-row"><span id="clock-label">09:36</span> · <span id="district-label">Solmarina</span></div>
+  </div>
+  <div id="objective" class="hidden"></div>
+  <div id="mission-panel" class="hidden"><div id="mp-title"></div><div id="mp-stage"></div><div id="mp-next"></div></div>
+  <div id="police-panel" class="hidden"><b>POLICE RESPONSE</b><div id="pp-list"></div></div>
+  <div id="offscreen-arrow" class="hidden">▶</div>
+  <div id="minimap-wrap">
+    <canvas id="minimap" width="180" height="180"></canvas>
+  </div>
+  <div id="bottom-right">
+    <div id="vitals">
+      <div class="bar"><div id="health-fill"></div></div>
+      <div class="bar armor"><div id="armor-fill"></div></div>
+    </div>
+    <div id="weapon-slots"><span id="slot-fists">1 ✊</span><span id="slot-pistol" class="sel">2 🔫 <b id="slot-ammo">12/12</b></span></div>
+    <div id="ammo-label">🔫 12 / 12</div>
+    <div id="speed-wrap" class="hidden"><span id="speed-label">0 km/h</span></div>
+    <div id="radio-wrap" class="hidden">📻 <span id="radio-label">TIDE FM 88.5</span></div>
+  </div>
+  <div id="prompt" class="hidden"></div>
+  <div id="toast" class="hidden"></div>
+  <div id="banner" class="hidden">
+    <div id="banner-title"></div>
+    <div id="banner-sub"></div>
+  </div>
+  <div id="bust-wrap" class="hidden">
+    <span>BUSTED IN…</span>
+    <div class="meter"><div id="bust-fill"></div></div>
+  </div>
+  <div id="spotted-wrap" class="hidden">
+    <span>SPOTTED</span>
+    <div class="meter"><div id="spotted-fill"></div></div>
+  </div>
+  <div id="crosshair" class="hidden"><span></span></div>
+  <div id="damage-flash" class="hidden"></div>
+  <div id="dialogue" class="hidden">
+    <div id="dlg-avatar">L</div>
+    <div id="dlg-body">
+      <div id="dlg-name">Lena Maris</div>
+      <div id="dlg-text"></div>
+      <div id="dlg-hint">E / click ▸</div>
+    </div>
+  </div>
+</div>
+<div id="map-screen" class="screen hidden">
+  <div class="screen-inner" id="map-inner">
+    <div class="logo-kicker">SOLMARINA · CITY MAP · PRESS M TO CLOSE</div>
+    <div id="map-cols">
+      <canvas id="map-canvas" width="480" height="480"></canvas>
+      <div id="map-side">
+        <h2>JOBS</h2>
+        <div id="map-jobs"></div>
+        <h2>STATS</h2>
+        <div id="map-stats"></div>
+        <div id="map-legend">△ You · ◎ Objective · green Safehouse · blue Police · red Hospital · pink Shells</div>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="screen-start" class="screen">
+  <div class="screen-inner">
+    <div class="logo-kicker">SOLMARINA · A COASTAL CITY · FIVE STORIES</div>
+    <h1>COASTLINE<br>STORIES</h1>
+    <p class="tagline">You came home to lie low. The coast had other plans. Five missions,
+      one ledger, and every cop in Solmarina — drive it, tail it, shoot it, outrun it.</p>
+    <div class="btn-row">
+      <button id="btn-start" class="btn primary">▶ New Game</button>
+      <button id="btn-continue" class="btn hidden">↻ Continue</button>
+      <button id="btn-title-sound" class="btn">Sound: ON</button>
+    </div>
+    <div id="save-info"></div>
+    <div id="cast-row"></div>
+    <div class="controls">
+      <div><b>W A S D</b> Move / drive</div>
+      <div><b>Mouse</b> Camera (click to lock)</div>
+      <div><b>Shift</b> Sprint</div>
+      <div><b>Space</b> Jump / handbrake</div>
+      <div><b>F</b> Enter / exit car</div>
+      <div><b>E</b> Talk / interact</div>
+      <div><b>Mouse btn</b> Shoot</div>
+      <div><b>R</b> Reload</div>
+      <div><b>Q</b> Radio station</div>
+      <div><b>M</b> City map</div>
+      <div><b>1 / 2</b> Fists / pistol</div>
+      <div><b>N</b> Mute</div>
+      <div><b>Esc / P</b> Pause</div>
+      <div><b>H</b> Horn</div>
+    </div>
+    <p class="fine">An original game: original city, characters, story, art and music.
+      Not affiliated with Rockstar Games or any other studio. Progress saves automatically.</p>
+  </div>
+</div>
+<div id="screen-pause" class="screen hidden">
+  <div class="screen-inner">
+    <h1 class="small">PAUSED</h1>
+    <p class="tagline">Progress saved. The city waits.</p>
+    <div class="btn-row">
+      <button id="btn-resume" class="btn primary">▶ Resume</button>
+      <button id="btn-restart" class="btn">↻ Restart Game</button>
+      <button id="btn-sound" class="btn">Sound: ON</button>
+    </div>
+    <div class="controls">
+      <div><b>W A S D</b> Move / drive</div>
+      <div><b>F</b> Enter / exit car</div>
+      <div><b>E</b> Talk / interact</div>
+      <div><b>Mouse btn</b> Shoot</div>
+      <div><b>Q</b> Radio station</div>
+      <div><b>Esc / P</b> Resume</div>
+    </div>
+  </div>
+</div>
+<div id="screen-wasted" class="screen incident hidden">
+  <div class="incident-title wasted">WASTED</div>
+  <p>You wake up at the hospital…</p>
+</div>
+<div id="screen-busted" class="screen incident hidden">
+  <div class="incident-title busted">BUSTED</div>
+  <p>The cops take you in…</p>
+</div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
