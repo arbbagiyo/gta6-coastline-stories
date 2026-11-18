@@ -21,7 +21,7 @@ export const DISTRICTS = [
 export const PLACES = {
 rustyAnchor: { name: 'The Rusty Anchor', x: -186, z: -156, blurb: 'Rosa\u2019s marina bar' },
 theoGarage: { name: 'Tidewater Garage', x: -36, z: 36, blurb: 'Theo\u2019s workshop' },
-portWarehouse: { name: 'Pier 9 Warehouse', x: 6, z: 186, blurb: 'Vince\u2019s lockup' },
+portWarehouse: { name: 'Pier 9 Warehouse', x: 6, z: 204, blurb: 'Vince\u2019s lockup' },
 safehouse: { name: 'Lena\u2019s Safehouse', x: 156, z: 96, blurb: 'Las Palmas' },
 policeStation: { name: 'Solmarina PD', x: 36, z: -156, blurb: 'Downtown' },
 hospital: { name: 'St. Marisol Hospital', x: 96, z: -36, blurb: 'Downtown' },
@@ -52,10 +52,11 @@ sand: 0xe0d199,
 water: 0x1d6f8e,
 asphalt: 0x3a3d42,
 sidewalk: 0xb8b4a8,
-buildingTints: [0xe8dcc8, 0xd9c4a8, 0xc8b8a0, 0xe8e0d0, 0xd0b098, 0xb8c8d0, 0xe0c8b0, 0xc8a878],
-houseTints: [0xf0e0c0, 0xe8c8b0, 0xd8e0d0, 0xf0d8a8, 0xd0c8e0, 0xe8d8c8],
-warehouseTints: [0xa89888, 0x989088, 0xb8a898, 0x888078],
-carPaints: [0xc23b2e, 0x2e6bc2, 0xe8c832, 0x3aa84e, 0xe8e8e8, 0x222226, 0x8a8f96, 0xc27a2e, 0x6a4a9e, 0x2ea8a0],
+buildingTints: [0xf8f0e4, 0xf0ece2, 0xf6ead8, 0xeef0ea, 0xf8e8dc, 0xeceef2, 0xf4ecdd, 0xf0e8e0],
+houseTints: [0xffe8c8, 0xffd0c0, 0xd0f0e0, 0xfff0b8, 0xe0d8ff, 0xffe8e0],
+warehouseTints: [0xc8b8a8, 0xb8a898, 0xd0c0a8, 0xa8b0b8],
+roofTints: [0xc26a4a, 0x8a5a4a, 0x4a6a7a, 0x7a8a9a, 0xb85a3a, 0x3e7a6a],
+carPaints: [0xe8392e, 0x2e7de8, 0xffd23e, 0x2ec85e, 0xf2f2f2, 0x3a3a42, 0xff5a8a, 0xff7a2e, 0x8a5ae8, 0x2ed8c8],
 };
 
 export const TUNE = {
@@ -85,20 +86,4 @@ export const RADIO = [
 { name: 'TIDE FM 88.5', style: 'Sunset synth', bpm: 112, root: 220, mode: 'minor' },
 { name: 'PALM RADIO 94.1', style: 'Coast reggae', bpm: 76, root: 196, mode: 'major' },
 { name: 'NIGHT DRIVE 101.7', style: 'Night pulse', bpm: 128, root: 165, mode: 'minor' },
-];
-
-export const CONTROLS_HELP = [
-['W A S D', 'Move / drive'],
-['Mouse', 'Camera (click to lock)'],
-['Shift', 'Sprint'],
-['Space', 'Jump / handbrake'],
-['F', 'Enter / exit car'],
-['E', 'Talk / interact'],
-['LMB', 'Shoot'],
-['R', 'Reload'],
-['Q', 'Radio station'],
-['M', 'City map'],
-['1 / 2', 'Fists / pistol'],
-['N', 'Mute'],
-['Esc / P', 'Pause'],
 ];

@@ -10,7 +10,7 @@ const HAIRC = [0x1a1210, 0x2a2018, 0x4a3018, 0x6a4a22, 0xb08a3e, 0x8a8a8a, 0xc23
 const EYES = ['#3a2a1a', '#2a1c10', '#4a3220', '#3a4a5a', '#2a4a2a', '#5a4a2a'];
 
 export const LOOKS = {
-lena: { skin: 0xe8c39a, eye: '#4a3220', brow: 1, mouth: 1, lip: 1, hair: 'pony', hairC: 0x2a1c10, female: 1, shirt: 0x2e8a6a, pants: 0x2a3a5a },
+lena: { skin: 0xe8c39a, eye: '#4a3220', brow: 1, mouth: 1, lip: 1, hair: 'mohawk', hairC: 0xff4da6, female: 1, shirt: 0xf2f2f2, pants: 0x2e5ac8, tank: 1 },
 theo: { skin: 0x6e4526, eye: '#2a1c10', brow: 2, mouth: 1, beard: 2, hair: 'short', hairC: 0x14100c, shirt: 0x8a6a2a, pants: 0x3a3a3a },
 rosa: { skin: 0xd9a878, eye: '#3a2415', brow: 1, mouth: 1, lip: 1, hair: 'long', hairC: 0x201510, female: 1, shirt: 0xc23b5e, pants: 0x2a2a3a },
 vince: { skin: 0xf0d0b0, eye: '#5a6a7a', brow: 2, mouth: 0, beard: 1, hair: 'slick', hairC: 0x777770, shirt: 0x3a3a4a, pants: 0x222226 },
@@ -106,6 +106,12 @@ if (st === 'policecap') { g.fillStyle = '#ffc94d'; g.beginPath(); g.arc(72, 14, 
 return;
 }
 g.fillStyle = css(f.hairC);
+if (st === 'mohawk') {
+g.beginPath();
+g.moveTo(58, 36); g.lineTo(62, 2); g.lineTo(68, 22); g.lineTo(74, 0); g.lineTo(80, 20); g.lineTo(86, 4); g.lineTo(88, 36);
+g.closePath(); g.fill();
+return;
+}
 g.beginPath(); g.ellipse(72, 30, 56, st === 'buzz' ? 26 : 34, 0, Math.PI, Math.PI * 2); g.fill();
 if (st === 'long' || st === 'bob') {
 g.fillRect(14, 26, 14, st === 'long' ? 78 : 66);
@@ -131,10 +137,21 @@ const g = c.getContext('2d');
 const bg = g.createLinearGradient(0, 0, 0, 144);
 bg.addColorStop(0, ch.color); bg.addColorStop(1, '#10131a');
 g.fillStyle = bg; g.fillRect(0, 0, 144, 144);
+if (f.tank) {
+g.fillStyle = css(f.skin);
+g.beginPath();
+g.moveTo(10, 144); g.quadraticCurveTo(16, 106, 46, 100); g.lineTo(98, 100);
+g.quadraticCurveTo(128, 106, 134, 144); g.closePath(); g.fill();
+g.fillStyle = css(f.shirt ?? 0x3a3a4a);
+g.beginPath();
+g.moveTo(40, 144); g.quadraticCurveTo(44, 104, 54, 100); g.lineTo(90, 100);
+g.quadraticCurveTo(100, 104, 104, 144); g.closePath(); g.fill();
+} else {
 g.fillStyle = css(f.shirt ?? 0x3a3a4a);
 g.beginPath();
 g.moveTo(10, 144); g.quadraticCurveTo(16, 106, 46, 100); g.lineTo(98, 100);
 g.quadraticCurveTo(128, 106, 134, 144); g.closePath(); g.fill();
+}
 g.save();
 g.beginPath(); g.ellipse(72, 60, 54, 58, 0, 0, 7); g.clip();
 g.translate(8, 2);
@@ -158,6 +175,13 @@ if (style === 'cap' || style === 'policecap') {
 put(0.44, 0.12, 0.44, 0, 0.22, 0, cm);
 put(0.44, 0.04, 0.26, 0, 0.17, -0.3, cm);
 if (style === 'policecap') put(0.1, 0.06, 0.02, 0, 0.22, -0.23, new THREE.MeshLambertMaterial({ color: 0xffc94d }));
+return;
+}
+if (style === 'mohawk') {
+put(0.1, 0.3, 0.4, 0, 0.34, 0);
+put(0.08, 0.12, 0.1, 0, 0.52, -0.13);
+put(0.08, 0.16, 0.1, 0, 0.54, 0);
+put(0.08, 0.12, 0.1, 0, 0.52, 0.13);
 return;
 }
 put(0.44, style === 'buzz' ? 0.05 : 0.1, 0.44, 0, style === 'buzz' ? 0.21 : 0.2, 0);
@@ -192,6 +216,7 @@ if (!m) { m = new THREE.MeshLambertMaterial({ color: c }); cache.set(c, m); }
 return m;
 };
 const skinM = M(f.skin), shirtM = M(f.shirt), pantsM = M(f.pants), hairM = M(f.hairC);
+const sleeveM = f.tank ? skinM : shirtM;
 const put = (parent, w, h, d, x, y, z, m, shadow) => {
 const b = new THREE.Mesh(boxGeo, m);
 b.scale.set(w, h, d); b.position.set(x, y, z);
@@ -206,8 +231,8 @@ put(torsoG, 0.62, 0.78, 0.34, 0, 0.39, 0, shirtM, true);
 if (f.jacket) put(torsoG, 0.3, 0.58, 0.02, 0, 0.42, -0.18, M(0xe8e8e8));
 put(torsoG, 0.64, 0.07, 0.36, 0, 0.05, 0, M(0x222222));
 put(torsoG, 0.42, 0.08, 0.36, 0, 0.76, 0, M(shade(f.shirt, 0.7)));
-put(torsoG, 0.2, 0.18, 0.3, -0.36, 0.68, 0, shirtM);
-put(torsoG, 0.2, 0.18, 0.3, 0.36, 0.68, 0, shirtM);
+put(torsoG, 0.2, 0.18, 0.3, -0.36, 0.68, 0, sleeveM);
+put(torsoG, 0.2, 0.18, 0.3, 0.36, 0.68, 0, sleeveM);
 if (f.female) {
 put(torsoG, 0.16, 0.16, 0.1, -0.14, 0.5, -0.19, shirtM);
 put(torsoG, 0.16, 0.16, 0.1, 0.14, 0.5, -0.19, shirtM);
@@ -228,7 +253,7 @@ const mkArm = (side) => {
 const p = new THREE.Group();
 p.position.set(side * 0.42, 1.56, 0);
 g.add(p);
-put(p, 0.17, 0.32, 0.17, 0, -0.16, 0, shirtM, true);
+put(p, 0.17, 0.32, 0.17, 0, -0.16, 0, sleeveM, true);
 const el = new THREE.Group();
 el.position.y = -0.32;
 p.add(el);
@@ -326,20 +351,9 @@ S.scene.add(rig.group);
 S.peds.push({
 rig, pos: rig.group.position, heading: rng() * Math.PI * 2,
 target: randomSidewalkPoint(rng), speed: 1.6 + rng() * 1.2,
-state: 'walk', stateTimer: 0, down: false,
+state: 'walk', stateTimer: 0, down: false, hostile: false, hostileTimer: 0, punchTimer: 0, punches: 0, punchAnim: 0,
 });
 }
-}
-
-export function spawnFleeingPed(x, z) {
-const rng = makeRng((Math.random() * 1e9) | 0);
-const rig = buildPersonRig(randomLook(rng, 'ped'));
-rig.group.position.set(x, 0.3, z);
-S.scene.add(rig.group);
-S.peds.push({
-rig, pos: rig.group.position, heading: rng() * Math.PI * 2,
-target: randomSidewalkPoint(rng), speed: 5.5, state: 'flee', stateTimer: 4, down: false,
-});
 }
 
 function pedCollide(ped) {
@@ -347,7 +361,7 @@ for (const b of S.colliders) {
 const hit = circleVsBox(ped.pos.x, ped.pos.z, 0.5, b);
 if (hit) { ped.pos.x = hit.x; ped.pos.z = hit.z; }
 }
-ped.pos.x = clamp(ped.pos.x, -233, 238);
+ped.pos.x = clamp(ped.pos.x, -224, 238);
 ped.pos.z = clamp(ped.pos.z, -238, 238);
 }
 
@@ -363,8 +377,42 @@ ped.rig.group.rotation.x = 0;
 ped.rig.group.visible = true;
 ped.down = false;
 ped.state = 'walk';
+ped.hostile = false;
+ped.punches = 0;
 }
 continue;
+}
+if (ped.hostile && threat) {
+const d = dist2D(ped.pos.x, ped.pos.z, threat.x, threat.z);
+ped.hostileTimer -= dt;
+if (ped.hostileTimer <= 0 || d > 30 || S.driving) {
+ped.hostile = false;
+ped.punches = 0;
+ped.state = 'walk';
+} else {
+const want = Math.atan2(-(threat.z - ped.pos.z), threat.x - ped.pos.x);
+ped.heading = damp(ped.heading, want, 8, dt);
+if (d > 1.8) {
+ped.pos.x += Math.cos(ped.heading) * 4.6 * dt;
+ped.pos.z += -Math.sin(ped.heading) * 4.6 * dt;
+pedCollide(ped);
+}
+ped.punchTimer -= dt;
+if (d <= 2.0 && ped.punchTimer <= 0) {
+ped.punchTimer = 0.9;
+ped.punchAnim = 0.3;
+S.playerDamage?.(6, ped.pos.x, ped.pos.z);
+S.effects?.burst(threat.x, 1.2, threat.z, 0xffcc66, 3, 2);
+}
+ped.rig.group.rotation.y = ped.heading - Math.PI / 2;
+animateRig(ped.rig, d > 1.8 ? 4.6 : 0, dt, false);
+if (ped.punchAnim > 0) {
+ped.punchAnim -= dt;
+ped.rig.armR.rotation.x = -1.7;
+ped.rig.elbowR.rotation.x = -0.1;
+}
+continue;
+}
 }
 let fleeing = ped.state === 'flee';
 if (threat && S.playerFiredTimer > 0 && dist2D(ped.pos.x, ped.pos.z, threat.x, threat.z) < 30) fleeing = true;
@@ -399,9 +447,23 @@ animateRig(ped.rig, ped.speed, dt, false);
 }
 }
 
+export function angerPed(ped, fromX, fromZ) {
+ped.punches = (ped.punches || 0) + 1;
+if (ped.punches >= 3) {
+knockPed(ped, fromX, fromZ);
+return;
+}
+ped.hostile = true;
+ped.hostileTimer = 12;
+ped.punchTimer = 0.5;
+S.effects?.burst(ped.pos.x, 1.4, ped.pos.z, 0xcc4444, 4, 2);
+S.audio?.thud(5);
+}
+
 export function knockPed(ped, fromX, fromZ) {
 if (ped.down) return;
 ped.down = true;
+ped.hostile = false;
 ped.stateTimer = 6;
 ped.rig.group.rotation.x = Math.PI / 2 - 0.15;
 ped.rig.group.rotation.y = Math.atan2(-(ped.pos.z - fromZ), ped.pos.x - fromX) - Math.PI / 2;
@@ -455,6 +517,7 @@ for (const b of S.colliders) {
 const hit = circleVsBox(r.pos.x, r.pos.z, 0.5, b);
 if (hit) { r.pos.x = hit.x; r.pos.z = hit.z; }
 }
+if (S.swimming) r.pos.x = Math.max(r.pos.x, -224);
 r.rig.group.rotation.y = r.heading - Math.PI / 2;
 animateRig(r.rig, sp, dt, true);
 r.shootTimer -= dt;

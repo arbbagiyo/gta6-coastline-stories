@@ -47,7 +47,7 @@ g.fillRect(0, h - 26, w, 26);
 
 export function makeFacadeSet(seed) {
 const rng = makeRng(seed);
-const tints = ['#e8dcc8', '#d9c4a8', '#c8b8a0', '#e8e0d0', '#d0b098', '#b8c8d0', '#e0c8b0', '#c8a878'];
+const tints = ['#ffd9b8', '#c8ecdc', '#c0dcf0', '#ffe9a8', '#f7c8d0', '#d8c8f0', '#ffe0c0', '#c8e8e0'];
 return tints.map((tint) => {
 const map = facadeTexture(tint, rng, false);
 const emissive = facadeTexture('#101014', rng, true);
@@ -65,11 +65,6 @@ for (let i = 0; i < 900; i += 1) {
 g.fillStyle = rng() < 0.5 ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.08)';
 g.fillRect(rng() * w, rng() * h, 2, 2);
 }
-
-g.fillStyle = '#d8c25a';
-g.fillRect(w / 2 - 3, 0, 6, h);
-g.fillStyle = '#33363b';
-for (let y = 0; y < h; y += 64) g.fillRect(w / 2 - 3, y + 8, 6, 32);
 
 g.fillStyle = '#c8c8c8';
 g.fillRect(6, 0, 3, h);
@@ -175,6 +170,34 @@ grad.addColorStop(1, 'rgba(255,255,255,0)');
 g.fillStyle = grad;
 g.fillRect(0, 0, w, h);
 });
+}
+
+export function makeContainerTexture() {
+const t = canvasTexture(256, 128, (g, w, h) => {
+g.fillStyle = '#d9d9d9';
+g.fillRect(0, 0, w, h);
+for (let x = 0; x < w; x += 16) {
+g.fillStyle = 'rgba(0,0,0,0.18)';
+g.fillRect(x, 0, 4, h);
+g.fillStyle = 'rgba(255,255,255,0.14)';
+g.fillRect(x + 8, 0, 4, h);
+}
+g.fillStyle = 'rgba(0,0,0,0.28)';
+g.fillRect(0, 0, w, 8);
+g.fillRect(0, h - 8, w, 8);
+g.fillRect(0, 0, 6, h);
+g.fillRect(w - 6, 0, 6, h);
+g.fillStyle = 'rgba(0,0,0,0.35)';
+g.fillRect(w - 62, 10, 3, h - 20);
+g.fillRect(w - 32, 10, 3, h - 20);
+for (let y = 18; y < h - 10; y += 26) g.fillRect(w - 62, y, 56, 3);
+const rng = makeRng(41);
+for (let i = 0; i < 120; i += 1) {
+g.fillStyle = rng() < 0.5 ? 'rgba(0,0,0,0.07)' : 'rgba(255,255,255,0.07)';
+g.fillRect(rng() * w, rng() * h, 6, 4);
+}
+});
+return t;
 }
 
 export function makeDotTexture() {

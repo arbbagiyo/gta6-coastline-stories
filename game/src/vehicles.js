@@ -1,16 +1,19 @@
 import * as THREE from 'three';
 import { WORLD, PALETTE, TUNE } from './config.js';
 import { S } from './state.js';
-import { makeRng, clamp, damp, angleDelta, circleVsBox, dist2D } from './util.js';
+import { makeRng, clamp, damp, angleDelta, circleVsBox, dist2D, roadWave } from './util.js';
 import { makeTaxiTexture } from './textures.js';
 
 const CAR_TYPES = {
-sedan: { len: 4.4, wid: 1.9, h: 1.35, top: 34, accel: 15, grip: 2.4 },
-coupe: { len: 4.1, wid: 1.85, h: 1.15, top: 40, accel: 19, grip: 2.9 },
-van: { len: 4.9, wid: 2.0, h: 2.0, top: 28, accel: 11, grip: 2.0 },
-truck: { len: 6.2, wid: 2.2, h: 2.6, top: 26, accel: 9, grip: 1.8 },
-taxi: { len: 4.4, wid: 1.9, h: 1.35, top: 34, accel: 15, grip: 2.4 },
-police: { len: 4.5, wid: 1.95, h: 1.35, top: 42, accel: 20, grip: 3.0 },
+sedan: { len: 4.4, wid: 1.9, h: 1.35, top: 36, accel: 15, grip: 2.4 },
+coupe: { len: 4.0, wid: 1.8, h: 1.05, top: 46, accel: 22, grip: 2.9 },
+hatch: { len: 3.8, wid: 1.8, h: 1.45, top: 33, accel: 14, grip: 2.5 },
+pickup: { len: 5.0, wid: 2.0, h: 1.6, top: 32, accel: 13, grip: 2.2 },
+van: { len: 4.9, wid: 2.0, h: 2.0, top: 29, accel: 11, grip: 2.0 },
+truck: { len: 6.2, wid: 2.2, h: 2.6, top: 27, accel: 9, grip: 1.8 },
+taxi: { len: 4.4, wid: 1.9, h: 1.35, top: 36, accel: 15, grip: 2.4 },
+police: { len: 4.5, wid: 1.95, h: 1.35, top: 44, accel: 20, grip: 3.0 },
+boat: { len: 6.0, wid: 2.4, h: 1.2, top: 48, accel: 24, grip: 2.6 },
 };
 
 const bodyGeo = new THREE.BoxGeometry(1, 1, 1);
@@ -34,6 +37,19 @@ const t = CAR_TYPES[type];
 const g = new THREE.Group();
 const paint = new THREE.MeshPhongMaterial({ color, shininess: 60 });
 const L = t.len, W = t.wid;
+const headMat = new THREE.MeshBasicMaterial({ color: 0xfff8d8 });
+const tailMat = new THREE.MeshBasicMaterial({ color: 0x881111 });
+if (type === 'boat') {
+box(g, L, 0.9, W, 0, 0.6, 0, paint);
+const bow = new THREE.Mesh(new THREE.ConeGeometry(W / 2, 1.6, 4), paint);
+bow.rotation.set(0, Math.PI / 4, -Math.PI / 2);
+bow.position.set(L / 2 + 0.7, 0.6, 0);
+g.add(bow);
+box(g, 1.6, 0.7, W - 0.5, 0.3, 1.35, 0, glassMat);
+box(g, 0.9, 0.6, 0.9, -0.6, 1.3, 0, darkMat);
+box(g, 0.5, 0.9, 0.4, -L / 2 - 0.2, 0.7, 0, darkMat);
+return { group: g, wheels: [], headMat, tailMat, lightBar: null, spec: t };
+}
 if (type === 'truck') {
 box(g, 2.0, 2.2, W, L / 2 - 1.1, 1.5, 0, paint);
 box(g, 1.4, 1.0, W - 0.3, L / 2 - 1.0, 2.9, 0, glassMat);
@@ -41,6 +57,22 @@ box(g, L - 2.4, 2.4, W, -1.2, 1.6, 0, new THREE.MeshLambertMaterial({ color: 0xd
 } else if (type === 'van') {
 box(g, L, 1.9, W, 0, 1.25, 0, paint);
 box(g, 1.3, 0.9, W - 0.2, L / 2 - 0.8, 1.9, 0, glassMat);
+} else if (type === 'coupe') {
+box(g, L, 0.5, W, 0, 0.5, 0, paint);
+box(g, L * 0.42, 0.42, W - 0.4, -L * 0.06, 0.95, 0, glassMat);
+box(g, 0.3, 0.12, W - 0.2, -L / 2 + 0.2, 0.85, 0, darkMat);
+box(g, L + 0.15, 0.2, W + 0.06, 0, 0.28, 0, darkMat);
+} else if (type === 'hatch') {
+box(g, L, 0.6, W, 0, 0.6, 0, paint);
+box(g, L * 0.55, 0.62, W - 0.25, -L * 0.06, 1.18, 0, paint);
+box(g, L * 0.5, 0.55, W - 0.2, -L * 0.06, 1.2, 0, glassMat);
+box(g, L + 0.15, 0.22, W + 0.06, 0, 0.34, 0, darkMat);
+} else if (type === 'pickup') {
+box(g, L, 0.62, W, 0, 0.68, 0, paint);
+box(g, L * 0.32, 0.62, W - 0.25, L * 0.2, 1.28, 0, paint);
+box(g, L * 0.28, 0.52, W - 0.2, L * 0.2, 1.3, 0, glassMat);
+box(g, L * 0.42, 0.34, W - 0.15, -L * 0.26, 1.1, 0, darkMat);
+box(g, L + 0.15, 0.22, W + 0.06, 0, 0.38, 0, darkMat);
 } else {
 box(g, L, 0.62, W, 0, 0.62, 0, paint);
 box(g, L * 0.52, 0.55, W - 0.3, L * 0.04, 1.18, 0, paint);
@@ -48,16 +80,16 @@ box(g, L * 0.46, 0.5, W - 0.24, L * 0.04, 1.2, 0, glassMat);
 box(g, L + 0.15, 0.22, W + 0.06, 0, 0.34, 0, darkMat);
 }
 
-const headMat = new THREE.MeshBasicMaterial({ color: 0xfff8d8 });
-const tailMat = new THREE.MeshBasicMaterial({ color: 0x881111 });
 for (const s of [-1, 1]) {
 box(g, 0.12, 0.22, 0.42, L / 2 + 0.03, 0.72, s * (W / 2 - 0.3), headMat, false);
 box(g, 0.12, 0.2, 0.42, -L / 2 - 0.03, 0.72, s * (W / 2 - 0.3), tailMat, false);
 }
 const wheels = [];
+const ws = type === 'pickup' ? 1.2 : type === 'coupe' ? 0.9 : type === 'truck' ? 1.15 : 1;
 for (const [wx, wz] of [[-L / 2 + 0.85, -W / 2], [-L / 2 + 0.85, W / 2], [L / 2 - 0.85, -W / 2], [L / 2 - 0.85, W / 2]]) {
 const pivot = new THREE.Group();
-pivot.position.set(wx, 0.38, wz);
+pivot.position.set(wx, 0.38 * ws, wz);
+pivot.scale.set(ws, ws, ws);
 const wheel = new THREE.Mesh(wheelGeo, tireMat);
 wheel.rotation.x = Math.PI / 2;
 wheel.castShadow = true;
@@ -111,7 +143,9 @@ throttle: 0,
 brake: false,
 handbrake: false,
 route: null,
-cruise: 11 + Math.random() * 4,
+topMul: driver === 'traffic' || driver === 'parked' ? 0.92 + Math.random() * 0.16 : 1,
+cruise: CAR_TYPES[type].top * (0.32 + Math.random() * 0.12),
+bobPhase: 0,
 dead: false,
 smokeTimer: 0,
 sirenPhase: Math.random() * 6.28,
@@ -122,7 +156,7 @@ return car;
 
 function onRoad(x, z) {
 for (const r of WORLD.roads) {
-if (Math.abs(x - r) < WORLD.roadWidth / 2 + 1 || Math.abs(z - r) < WORLD.roadWidth / 2 + 1) return true;
+if (Math.abs(x - (r + roadWave(z))) < WORLD.roadWidth / 2 + 1 || Math.abs(z - (r + roadWave(x))) < WORLD.roadWidth / 2 + 1) return true;
 }
 return false;
 }
@@ -140,7 +174,7 @@ car.pos.x += pushX;
 car.pos.z += pushZ;
 const impact = Math.abs(car.speed);
 if (impact > 4) {
-car.health -= (impact - 4) * 0.9;
+if (car.driver !== 'mission') car.health -= (impact - 4) * 0.9;
 S.shake = Math.min(0.5, S.shake + impact * 0.012);
 if (car.driver === 'player') S.audio?.thud(impact);
 S.effects?.burst(car.pos.x, 1, car.pos.z, 0xffcc66, 6, 3);
@@ -154,19 +188,24 @@ return;
 }
 }
 
-car.pos.x = clamp(car.pos.x, -233, 238);
+car.pos.x = clamp(car.pos.x, -223, 238);
 car.pos.z = clamp(car.pos.z, -238, 238);
+if (car.pos.x <= -223 && car.speed > 0 && Math.cos(car.heading) < 0) car.speed *= 0.6;
 }
 
 function trafficSteer(car, dt) {
 if (!car.route) pickRoute(car);
-const r = car.route;
-const tx = r.x, tz = r.z;
+let r = car.route;
+const alongNow = r.axis === 'x' ? car.pos.x : car.pos.z;
+if ((r.end - alongNow) * r.dir <= 0) { pickRoute(car); r = car.route; }
+const sAhead = (r.axis === 'x' ? car.pos.x : car.pos.z) + r.dir * 10;
+const lat = r.road + roadWave(sAhead) + r.side;
+const tx = r.axis === 'x' ? sAhead : lat;
+const tz = r.axis === 'x' ? lat : sAhead;
 const dx = tx - car.pos.x, dz = tz - car.pos.z;
 const want = Math.atan2(-dz, dx);
 const d = angleDelta(car.heading, want);
 car.steer = damp(car.steer, clamp(d * 2.2, -0.55, 0.55), 6, dt);
-if (Math.hypot(dx, dz) < 6) pickRoute(car);
 
 const fx = Math.cos(car.heading), fz = -Math.sin(car.heading);
 let blocked = false;
@@ -184,24 +223,40 @@ const ahead = ox * fx + oz * fz;
 const side = Math.abs(-ox * fz + oz * fx);
 if (ahead > 0 && ahead < 9 && side < 2.2) blocked = true;
 }
-car.throttle = blocked ? 0 : 1;
-if (blocked && car.speed > 0.5) car.brake = true; else car.brake = false;
+const eff = Math.abs(d) > 0.5 ? car.cruise * 0.5 : car.cruise;
+car.throttle = blocked ? 0 : car.speed < eff ? 1 : 0;
+car.brake = (blocked && car.speed > 0.5) || car.speed > eff + 8;
 }
 
 function pickRoute(car) {
 const roads = WORLD.roads;
 const near = (v) => roads.reduce((a, b) => (Math.abs(b - v) < Math.abs(a - v) ? b : a));
-const rx = near(car.pos.x), rz = near(car.pos.z);
-
-const goX = Math.random() < 0.5;
-const idx = roads.indexOf(goX ? rz : rx);
-let nIdx = idx + (Math.random() < 0.5 ? 1 : -1);
-nIdx = clamp(nIdx, 0, roads.length - 1);
-if (goX) car.route = { x: roads[nIdx], z: rz };
-else car.route = { x: rx, z: roads[nIdx] };
-
-car.route.x += goX ? 0 : 3.4;
-car.route.z += goX ? 3.4 : 0;
+const old = car.route;
+let axis, dir;
+if (old && Math.random() < 0.65) { axis = old.axis; dir = old.dir; }
+else if (!old) {
+const fx = Math.cos(car.heading), fz = -Math.sin(car.heading);
+if (Math.abs(fx) >= Math.abs(fz)) { axis = 'x'; dir = fx >= 0 ? 1 : -1; }
+else { axis = 'z'; dir = fz >= 0 ? 1 : -1; }
+} else { axis = Math.random() < 0.5 ? 'x' : 'z'; dir = Math.random() < 0.5 ? 1 : -1; }
+let road = near(axis === 'x' ? car.pos.z : car.pos.x);
+const endFor = (ax, dd) => {
+const al = ax === 'x' ? car.pos.x : car.pos.z;
+const ordered = dd > 0 ? roads : [...roads].reverse();
+for (const r of ordered) if ((r - al) * dd > 4) return r;
+return null;
+};
+let end = endFor(axis, dir);
+if (end === null) {
+axis = axis === 'x' ? 'z' : 'x';
+const al = axis === 'x' ? car.pos.x : car.pos.z;
+dir = al > 0 ? -1 : 1;
+road = near(axis === 'x' ? car.pos.z : car.pos.x);
+end = endFor(axis, dir);
+}
+if (end === null) { dir = -dir; end = endFor(axis, dir); }
+const side = (axis === 'x' ? 3.4 : -3.4) * dir;
+car.route = { axis, road, side, dir, end };
 }
 
 export function updateCarPhysics(car, dt) {
@@ -209,8 +264,8 @@ const t = car.parts.spec;
 if (car.dead) {
 car.speed = damp(car.speed, 0, 4, dt);
 } else {
-const offroad = !onRoad(car.pos.x, car.pos.z);
-const top = offroad ? t.top * 0.55 : t.top;
+const offroad = car.type !== 'boat' && !onRoad(car.pos.x, car.pos.z);
+const top = (offroad ? t.top * 0.55 : t.top) * car.topMul;
 if (car.throttle > 0) car.speed += t.accel * car.throttle * dt;
 if (car.brake) car.speed -= (car.speed > 0 ? 26 : 10) * dt;
 if (car.handbrake) car.speed = damp(car.speed, 0, 3.2, dt);
@@ -224,7 +279,19 @@ const fx = Math.cos(car.heading), fz = -Math.sin(car.heading);
 const prevX = car.pos.x, prevZ = car.pos.z;
 car.pos.x += fx * car.speed * dt;
 car.pos.z += fz * car.speed * dt;
-collideWorld(car);
+if (car.type === 'boat') {
+car.pos.x = clamp(car.pos.x, -298, -226);
+car.pos.z = clamp(car.pos.z, -238, 238);
+car.bobPhase += dt;
+car.pos.y = Math.sin(car.bobPhase * 1.4) * 0.12;
+if (Math.abs(car.speed) > 8) {
+car.smokeTimer -= dt;
+if (car.smokeTimer <= 0) {
+car.smokeTimer = 0.12;
+S.effects?.smoke(car.pos.x - fx * 3, 0.4, car.pos.z - fz * 3, 0xdff2f8);
+}
+}
+} else collideWorld(car);
 car.mesh.rotation.y = car.heading;
 
 car.wheelSpin += (car.speed / 0.38) * dt;
@@ -288,14 +355,16 @@ b.speed = damp(b.speed, avg, 6, dt);
 
 export function createTraffic() {
 const rng = makeRng(4242);
-const types = ['sedan', 'sedan', 'coupe', 'van', 'taxi', 'sedan', 'coupe'];
+const types = ['sedan', 'coupe', 'hatch', 'pickup', 'van', 'taxi', 'sedan', 'truck', 'hatch'];
 for (let i = 0; i < TUNE.trafficCount; i += 1) {
 const rx = WORLD.roads[(rng() * WORLD.roads.length) | 0];
 const rz = WORLD.roads[(rng() * WORLD.roads.length) | 0];
 const alongX = rng() < 0.5;
-const x = alongX ? -200 + rng() * 400 : rx + 3.4;
-const z = alongX ? rz + 3.4 : -200 + rng() * 400;
+const t = -200 + rng() * 400;
 const heading = alongX ? (rng() < 0.5 ? 0 : Math.PI) : (rng() < 0.5 ? Math.PI / 2 : -Math.PI / 2);
+const side = alongX ? (heading === 0 ? 3.4 : -3.4) : (heading > 0 ? 3.4 : -3.4);
+const x = alongX ? t : rx + roadWave(t) + side;
+const z = alongX ? rz + roadWave(t) + side : t;
 const type = types[(rng() * types.length) | 0];
 const color = type === 'taxi' ? 0xf2c230 : PALETTE.carPaints[(rng() * PALETTE.carPaints.length) | 0];
 const car = createCar(type, x, z, heading, color, 'traffic');
@@ -308,14 +377,18 @@ for (let i = 0; i < TUNE.parkedCount; i += 1) {
 const rx = WORLD.roads[(rng() * WORLD.roads.length) | 0];
 const alongX = rng() < 0.5;
 const t = -190 + rng() * 380;
-const x = alongX ? t : rx + (rng() < 0.5 ? -6.2 : 6.2);
-const z = alongX ? rx + (rng() < 0.5 ? -6.2 : 6.2) : t;
+const x = alongX ? t : rx + roadWave(t) + (rng() < 0.5 ? -5.6 : 5.6);
+const z = alongX ? rx + roadWave(t) + (rng() < 0.5 ? -5.6 : 5.6) : t;
 const heading = alongX ? (rng() < 0.5 ? 0 : Math.PI) : (rng() < 0.5 ? Math.PI / 2 : -Math.PI / 2);
 const type = types[(rng() * types.length) | 0];
 const color = type === 'taxi' ? 0xf2c230 : PALETTE.carPaints[(rng() * PALETTE.carPaints.length) | 0];
 const car = createCar(type, x, z, heading, color, 'parked');
 S.parked.push(car);
 S.spawnPoints.push({ x, z, heading, type, color });
+}
+for (const [bx, bz, bh] of [[-234, -40, 0], [-234, 90, Math.PI]]) {
+const boat = createCar('boat', bx, bz, bh, PALETTE.carPaints[(rng() * PALETTE.carPaints.length) | 0], 'parked');
+S.parked.push(boat);
 }
 }
 
@@ -327,8 +400,10 @@ updateCarPhysics(car, dt);
 
 if (S.player && dist2D(car.pos.x, car.pos.z, S.player.pos.x, S.player.pos.z) > 280) {
 const rx = WORLD.roads[(Math.random() * WORLD.roads.length) | 0];
+const east = Math.random() < 0.5;
+car.heading = east ? 0 : Math.PI;
 car.pos.x = clamp(S.player.pos.x + (Math.random() < 0.5 ? -1 : 1) * (120 + Math.random() * 60), -230, 230);
-car.pos.z = rx + 3.4;
+car.pos.z = rx + roadWave(car.pos.x) + (east ? 3.4 : -3.4);
 pickRoute(car);
 }
 }

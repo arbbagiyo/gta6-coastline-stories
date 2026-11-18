@@ -1,5 +1,6 @@
 import { PLACES, TUNE } from './config.js';
 import { S } from './state.js';
+import { roadWave } from './util.js';
 import { createCar } from './vehicles.js';
 import { spawnRival } from './characters.js';
 import { setWanted, spawnPoliceCar } from './police.js';
@@ -34,58 +35,29 @@ S.hud?.showStars(4);
 
 spawnPoliceCar(-210, 78, Math.PI / 2);
 spawnPoliceCar(-204, -6, -Math.PI / 2);
+const opp = createCar('sedan', -210 + roadWave(-30) - 3.4, -30, -Math.PI / 2, 0xffd23e, 'traffic');
+opp.route = { axis: 'z', road: -210, side: -3.4, dir: 1, end: 150 };
+opp.speed = 10;
+S.traffic.push(opp);
 S.hud?.setObjective('Lose the cops — break line of sight and stay quiet');
 resetCamera(Math.PI - Math.PI / 2, 0.15);
 return 4000;
 },
-
-
-
-story() {
-S.dayTime = 0.36;
-S.player.pos.set(-30, 0.3, 30);
-S.player.heading = Math.PI / 4;
-for (const ped of S.peds) {
-if (Math.hypot(ped.pos.x + 30, ped.pos.z - 30) < 20) {
-ped.pos.x += 60;
-ped.pos.z += 60;
-ped.target = { x: ped.pos.x + 40, z: ped.pos.z };
-}
-}
-S.hud?.showScreen('none');
-startMission();
-resetCamera(Math.PI - S.player.heading, 0.3);
-return 5500;
-},
-
-drive() {
-S.dayTime = 0.75;
-S.cash = 1250;
-putPlayerInCar('sedan', 0x2e6bc2, -210, -120, -Math.PI / 2, 21);
-input.keys.add('KeyW');
-S.hud?.setObjective('Drive to the Rusty Anchor — 412m');
-S.hud?.setRadio('TIDE FM 88.5 — Coastal Chill');
-resetCamera(Math.PI + Math.PI / 2, 0.3);
-return 3000;
-},
-
-
-
 shootout() {
-S.dayTime = 0.25;
+S.dayTime = 0.42;
 S.ammo = 9;
 S.health = 74;
-S.player.pos.set(6, 0.3, 148);
-S.player.heading = -Math.PI / 2;
+S.player.pos.set(24, 0.3, 150);
+S.player.heading = Math.PI;
 S.mission = { def: { title: 'Dockside Deal', steps: [{ label: "Take down Vince's crew" }] }, stepIdx: 0, combat: true, data: {} };
-spawnRival(0, 158, { health: 60 });
-spawnRival(11, 156, { health: 60 });
-spawnRival(-9, 157, { health: 60 });
+spawnRival(16, 150, { health: 60 });
+spawnRival(14, 154, { health: 60 });
+spawnRival(17, 146, { health: 60 });
 S.godTimer = 999;
 input.mouseDown = true;
 S.hud?.setObjective('Take down Vince\'s crew (0/3)');
 S.hud?.showStars(2);
-resetCamera(Math.PI - S.player.heading, 0.3);
+resetCamera(Math.PI - S.player.heading, 0.18);
 return 3500;
 },
 map() {

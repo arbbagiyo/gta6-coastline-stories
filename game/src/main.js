@@ -73,6 +73,7 @@ hud.toast(muted ? 'Sound off' : 'Sound on');
 if (code === 'KeyQ' && S.screen === 'play') S.audio.nextStation();
 if (code === 'Digit1' && S.screen === 'play') S.weapon = 'fists';
 if (code === 'Digit2' && S.screen === 'play') S.weapon = 'pistol';
+if (code === 'Digit3' && S.screen === 'play') S.weapon = 'rpg';
 if ((code === 'Escape' || code === 'KeyP') && S.screen === 'play') {
 if (isMapOpen()) closeMap();
 else pauseGame();

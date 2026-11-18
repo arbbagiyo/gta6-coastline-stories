@@ -274,7 +274,7 @@ $('cash-label').textContent = formatMoney(S.cash);
 $('clock-label').textContent = formatClock(S.dayTime);
 const district = S.districtAt ? S.districtAt(S.player.pos.x, S.player.pos.z) : null;
 $('district-label').textContent = district ? district.name : 'Solmarina';
-$('ammo-label').textContent = S.weapon === 'pistol' ? `🔫 ${S.ammo} / ${TUNE.magSize}` : '—';
+$('ammo-label').textContent = S.weapon === 'pistol' ? `🔫 ${S.ammo} / ${TUNE.magSize}` : S.weapon === 'rpg' ? `🚀 ${S.player ? S.player.rockets : 0}` : '—';
 if (S.driving) {
 const kmh = Math.round(Math.abs(S.driving.speed) * 3.6);
 $('speed-label').textContent = `${kmh} km/h`;
@@ -331,7 +331,9 @@ pp.classList.remove('hidden');
 } else pp.classList.add('hidden');
 $('slot-fists').classList.toggle('sel', S.weapon === 'fists');
 $('slot-pistol').classList.toggle('sel', S.weapon === 'pistol');
+$('slot-rpg').classList.toggle('sel', S.weapon === 'rpg');
 $('slot-ammo').textContent = `${S.ammo}/${TUNE.magSize}`;
+$('slot-rockets').textContent = `${S.player ? S.player.rockets : 0}`;
 this.drawMinimap();
 
 $('crosshair').classList.toggle('hidden', !(S.player.aiming && !S.driving));

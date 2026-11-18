@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { PLACES, CHARACTERS, TUNE } from './config.js';
 import { S } from './state.js';
-import { clamp, damp, angleDelta, dist2D, makeRng } from './util.js';
+import { clamp, damp, angleDelta, dist2D, makeRng, roadWave } from './util.js';
 import { createCar, updateCarPhysics } from './vehicles.js';
 import { spawnRival, clearRivals, damageRival } from './characters.js';
 import { setWanted, clearPolice } from './police.js';
@@ -86,7 +86,7 @@ steps: [
 { type: 'eliminate', label: 'Take down Vince\'s crew', spawns: [
 { x: 14, z: 178 }, { x: -2, z: 192 }, { x: 18, z: 196 }, { x: -12, z: 184 }, { x: 6, z: 206 },
 ] },
-{ type: 'pickup', label: 'Take the briefcase', x: 6, z: 186 },
+{ type: 'pickup', label: 'Take the briefcase', x: 6, z: 204 },
 { type: 'goto', label: 'Get the briefcase to the safehouse', x: PLACES.safehouse.x, z: PLACES.safehouse.z, radius: 9 },
 { type: 'dialogue', lines: [
 { who: 'rosa', text: 'The case, the ledger, all of it. Vince will not forget this, Lena. Neither will I. Nine hundred.' },
@@ -256,6 +256,7 @@ const reward = TUNE.missionReward[S.missionIndex] || 500;
 S.cash += reward;
 S.missionIndex += 1;
 S.stats.missionsDone += 1;
+if (S.player) S.player.rockets = 6;
 clearRivals();
 clearStepBeacon();
 S.mission = null;
@@ -300,6 +301,7 @@ if (idx >= 0) S.missionIndex = idx;
 S.health = TUNE.maxHealth;
 S.armor = 0;
 S.ammo = TUNE.magSize;
+if (S.player) S.player.rockets = 6;
 const start = def ? def.start : PLACES.safehouse;
 S.player.pos.set(start.x, 0.3, start.z);
 S.player.heading = 0;
@@ -354,9 +356,12 @@ advanceStep();
 return;
 }
 }
-const want = Math.atan2(-dz, dx);
+const tx = Math.abs(dx) > Math.abs(dz) ? wp.x : wp.x + roadWave(courierCar.pos.z);
+const tz = Math.abs(dx) > Math.abs(dz) ? wp.z + roadWave(courierCar.pos.x) : wp.z;
+const want = Math.atan2(-(tz - courierCar.pos.z), tx - courierCar.pos.x);
 courierCar.steer = damp(courierCar.steer, clamp(angleDelta(courierCar.heading, want) * 2.2, -0.55, 0.55), 5, dt);
-const cruise = spottedBoost > 0 ? 26 : 15;
+const turnErr = Math.abs(angleDelta(courierCar.heading, want));
+const cruise = spottedBoost > 0 ? 26 : (turnErr > 0.5 ? 8 : 15);
 courierCar.throttle = courierCar.speed < cruise ? 1 : 0;
 courierCar.brake = courierCar.speed > cruise + 2;
 updateCarPhysics(courierCar, dt);

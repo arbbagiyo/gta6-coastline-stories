@@ -33,7 +33,10 @@ wanted: 0,
 wantedTimer: 0,
 hiddenTimer: 0,
 police: [],
+heli: null,
+heliCooldown: 0,
 bustTimer: 0,
+swimming: false,
 
 
 traffic: [],
@@ -110,6 +113,8 @@ S.wanted = 0;
 S.wantedTimer = 0;
 S.hiddenTimer = 0;
 S.bustTimer = 0;
+S.heliCooldown = 0;
+S.swimming = false;
 S.playerFiredTimer = 0;
 S.godTimer = 0;
 S.missionIndex = 0;

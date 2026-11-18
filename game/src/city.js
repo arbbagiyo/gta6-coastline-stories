@@ -1,10 +1,10 @@
 import * as THREE from 'three';
-import { WORLD, DISTRICTS, PALETTE } from './config.js';
+import { WORLD, DISTRICTS, PALETTE, PLACES } from './config.js';
 import { S } from './state.js';
-import { makeRng, clamp, lerp } from './util.js';
+import { makeRng, clamp, lerp, roadWave, roadWaveSlope } from './util.js';
 import {
 makeFacadeSet, makeRoadTexture, makeSidewalkTexture, makeSandTexture,
-makeWaterTexture, makeGrassTexture, makeSignTexture, makeGlowTexture,
+makeWaterTexture, makeGrassTexture, makeSignTexture, makeGlowTexture, makeContainerTexture,
 } from './textures.js';
 
 const tmpColor = new THREE.Color();
@@ -89,29 +89,63 @@ animated.water = waterTex;
 
 const roadTex = makeRoadTexture();
 const roadMat = new THREE.MeshLambertMaterial({ map: roadTex });
-const roadGeoX = new THREE.PlaneGeometry(WORLD.half * 2, WORLD.roadWidth);
-const roadGeoZ = new THREE.PlaneGeometry(WORLD.roadWidth, WORLD.half * 2);
+const walkRibbonMat = new THREE.MeshLambertMaterial({ map: makeSidewalkTexture() });
+function ribbon(alongX, r, y, half, mat, uRep, vRep, follow) {
+const SEG = 80, pos = [], uv = [], idx = [];
+let arc = 0, ps = -240, pc = r + roadWave(-240);
+for (let i = 0; i <= SEG; i += 1) {
+const s = -240 + (i / SEG) * 480;
+const c = r + roadWave(s);
+arc += Math.hypot(s - ps, c - pc); ps = s; pc = c;
+const sl = roadWaveSlope(s), L = Math.hypot(1, sl);
+const ox = follow ? sl * half / L : 0, oz = follow ? half / L : half;
+if (alongX) pos.push(s + ox, y, c - oz, s - ox, y, c + oz);
+else pos.push(c + oz, y, s - ox, c - oz, y, s + ox);
+const u = follow ? arc / 6 : i / SEG * uRep;
+uv.push(u, 0, u, vRep);
+if (i < SEG) { let hole = false; if (!alongX && follow) { const mz = s + 3, mx = r + roadWave(mz); for (const r2 of WORLD.roads) if (Math.abs(mz - r2 - roadWave(mx)) < 10.2) { hole = true; break; } } if (!hole) { const k = i * 2; idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); } }
+}
+const geo = new THREE.BufferGeometry();
+geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+geo.setIndex(idx);
+geo.computeVertexNormals();
+const m = new THREE.Mesh(geo, mat);
+m.receiveShadow = true;
+return m;
+}
 for (const r of WORLD.roads) {
-const hz = new THREE.Mesh(roadGeoX, roadMat);
-hz.rotation.x = -Math.PI / 2;
-hz.position.set(0, 0.06, r);
-hz.receiveShadow = true;
-scene.add(hz);
-const vt = new THREE.Mesh(roadGeoZ, roadMat);
-vt.rotation.x = -Math.PI / 2;
-vt.position.set(r, 0.07, 0);
-vt.receiveShadow = true;
-scene.add(vt);
+scene.add(ribbon(true, r, 0.04, 10, walkRibbonMat, 80, 3.3, true), ribbon(false, r, 0.03, 10, walkRibbonMat, 80, 3.3, true));
+scene.add(ribbon(true, r, 0.06, 7, roadMat, 1, 1), ribbon(false, r, 0.07, 7, roadMat, 1, 1));
 }
 
-const prom = new THREE.Mesh(
-new THREE.PlaneGeometry(6, WORLD.half * 2),
-new THREE.MeshLambertMaterial({ map: makeSidewalkTexture() }),
-);
-prom.material.map.repeat.set(1, 40);
-prom.rotation.x = -Math.PI / 2;
-prom.position.set(-214, 0.08, 0);
-scene.add(prom);
+scene.add(ribbon(false, -214, 0.08, 3, new THREE.MeshLambertMaterial({ map: makeSidewalkTexture() }), 1, 1, true));
+
+const dashX = [];
+const dashZ = [];
+for (const r of WORLD.roads) {
+for (let t = -234; t <= 234; t += 6) {
+let near = false;
+for (const r2 of WORLD.roads) if (Math.abs(t - r2) < 10) { near = true; break; }
+if (!near) { dashX.push([t, r + roadWave(t)]); dashZ.push([r + roadWave(t), t]); }
+}
+}
+const dashMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+const dashGeoX = new THREE.BoxGeometry(3, 0.02, 0.45);
+const dashMeshX = new THREE.InstancedMesh(dashGeoX, dashMat, dashX.length);
+dashX.forEach(([x, z], i) => {
+tmpQuat.setFromEuler(new THREE.Euler(0, -Math.atan(roadWaveSlope(x)), 0));
+tmpMatrix.compose(tmpPos.set(x, 0.12, z), tmpQuat, tmpScale.set(1, 1, 1));
+dashMeshX.setMatrixAt(i, tmpMatrix);
+});
+const dashGeoZ = new THREE.BoxGeometry(0.45, 0.02, 3);
+const dashMeshZ = new THREE.InstancedMesh(dashGeoZ, dashMat, dashZ.length);
+dashZ.forEach(([x, z], i) => {
+tmpQuat.setFromEuler(new THREE.Euler(0, Math.atan(roadWaveSlope(z)), 0));
+tmpMatrix.compose(tmpPos.set(x, 0.12, z), tmpQuat, tmpScale.set(1, 1, 1));
+dashMeshZ.setMatrixAt(i, tmpMatrix);
+});
+scene.add(dashMeshX, dashMeshZ);
 
 
 const edges = [-240, -217, -203, -157, -143, -97, -83, -37, -23, 23, 37, 83, 97, 143, 157, 203, 217, 240];
@@ -120,12 +154,11 @@ for (let i = 0; i < edges.length - 1; i += 1) {
 const a = edges[i], b = edges[i + 1];
 if (b - a >= 20) segs.push([a, b]);
 }
-const walkMat = new THREE.MeshLambertMaterial({ map: makeSidewalkTexture() });
-walkMat.map.repeat.set(6, 6);
+const walkMat = new THREE.MeshLambertMaterial({ color: 0xb3afa2 });
 const facades = makeFacadeSet(1234);
 const boxGeo = new THREE.BoxGeometry(1, 1, 1);
 const roofGeo = new THREE.BoxGeometry(1, 0.3, 1);
-const roofMat = new THREE.MeshLambertMaterial({ color: 0x4a4a50 });
+const roofMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
 const facadeMeshes = facades.map((f) => {
 const m = new THREE.MeshLambertMaterial({ map: f.map, emissiveMap: f.emissive, emissive: 0xffffff, emissiveIntensity: 0 });
 animated.facadeMats.push(m);
@@ -176,6 +209,7 @@ colliders.push({ x0: cx - hw / 2, z0: cz - hd / 2, x1: cx + hw / 2, z1: cz + hd 
 continue;
 }
 
+const plaza = cx === 0 && cz === 0;
 const tall = d.short === 'DOWNTOWN';
 const n = tall ? 1 : (rng() < 0.5 ? 2 : 1);
 for (let k = 0; k < n; k += 1) {
@@ -186,12 +220,15 @@ const hMin = tall ? 22 : d.short === 'OLD TOWN' ? 9 : 6;
 const hMax = tall ? 46 : d.short === 'OLD TOWN' ? 17 : 11;
 const hh = hMin + rng() * (hMax - hMin);
 const vi = (rng() * facades.length) | 0;
-placements[vi].push([bx, hh / 2 + 0.3, cz, bw, hh, bd, PALETTE.buildingTints[(rng() * PALETTE.buildingTints.length) | 0]]);
+const tint = PALETTE.buildingTints[(rng() * PALETTE.buildingTints.length) | 0];
+if (!plaza) {
+placements[vi].push([bx, hh / 2 + 0.3, cz, bw, hh, bd, tint]);
 roofPlacements.push([bx, hh + 0.3, cz, bw + 0.5, 0.3, bd + 0.5]);
 colliders.push({ x0: bx - bw / 2, z0: cz - bd / 2, x1: bx + bw / 2, z1: cz + bd / 2 });
-
+}
 if ((d.short === 'OLD TOWN' || d.short === 'MARINA') && rng() < 0.4 && signMeshes.length < 12) {
 const s = shopSigns[(rng() * shopSigns.length) | 0];
+if (!plaza) {
 const sign = new THREE.Mesh(
 new THREE.PlaneGeometry(12, 3),
 new THREE.MeshBasicMaterial({ map: makeSignTexture(s[0], s[1], s[2]) }),
@@ -199,6 +236,7 @@ new THREE.MeshBasicMaterial({ map: makeSignTexture(s[0], s[1], s[2]) }),
 sign.position.set(bx, 4.4, cz + bd / 2 + 0.15);
 signMeshes.push(sign);
 scene.add(sign);
+}
 }
 }
 }
@@ -226,6 +264,7 @@ tmpPos.set(p[0], p[1], p[2]);
 tmpScale.set(p[3], 1, p[5]);
 tmpMatrix.compose(tmpPos, tmpQuat.identity(), tmpScale);
 roofMesh.setMatrixAt(i, tmpMatrix);
+roofMesh.setColorAt(i, tmpColor.setHex(PALETTE.roofTints[i % PALETTE.roofTints.length]));
 });
 scene.add(roofMesh);
 
@@ -241,7 +280,7 @@ houseMesh.setColorAt(i, tmpColor.setHex(p[6]));
 houseMesh.castShadow = true;
 scene.add(houseMesh);
 const coneGeo = new THREE.ConeGeometry(1, 1, 4);
-const roofMat2 = new THREE.MeshLambertMaterial({ color: 0x8a4a3a });
+const roofMat2 = new THREE.MeshLambertMaterial({ color: 0xffffff });
 const houseRoof = new THREE.InstancedMesh(coneGeo, roofMat2, houseRoofPlacements.length);
 houseRoofPlacements.forEach((p, i) => {
 tmpPos.set(p[0], p[1] + 1.5, p[2]);
@@ -249,6 +288,7 @@ tmpScale.set(p[3] * 0.72, 3, p[5] * 0.72);
 tmpQuat.setFromEuler(new THREE.Euler(0, Math.PI / 4, 0));
 tmpMatrix.compose(tmpPos, tmpQuat, tmpScale);
 houseRoof.setMatrixAt(i, tmpMatrix);
+houseRoof.setColorAt(i, tmpColor.setHex(PALETTE.roofTints[(i + 2) % PALETTE.roofTints.length]));
 });
 scene.add(houseRoof);
 
@@ -256,31 +296,78 @@ scene.add(houseRoof);
 const trunkGeo = new THREE.CylinderGeometry(0.35, 0.5, 7, 6);
 const trunkMat = new THREE.MeshLambertMaterial({ color: 0x7a5a3a });
 const crownGeo = new THREE.IcosahedronGeometry(3.2, 0);
-const crownMat = new THREE.MeshLambertMaterial({ color: 0x3e8e4e });
+const crownMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+const offRoad = (x, z) => {
+for (const r of WORLD.roads) {
+if (Math.abs(x - r) < 10) x = x < r ? r - 10 : r + 10;
+if (Math.abs(z - r) < 10) z = z < r ? r - 10 : r + 10;
+}
+return [x, z];
+};
 const palmSpots = [];
 for (let z = -220; z <= 220; z += 30) {
-palmSpots.push([-218, z + (rng() * 8 - 4)]);
-if (rng() < 0.7) palmSpots.push([-196, z + 15]);
+palmSpots.push([-221, z + (rng() * 4 - 2)]);
+if (rng() < 0.7) palmSpots.push(offRoad(-196, z + 15));
 }
 for (let i = 0; i < 40; i += 1) {
 const x = 100 + rng() * 130, z = -100 + rng() * 200;
-palmSpots.push([x, z]);
+palmSpots.push(offRoad(x, z));
 }
-for (let i = 0; i < 14; i += 1) palmSpots.push([-40 + rng() * 80, -40 + rng() * 80]);
-const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, palmSpots.length);
-const crowns = new THREE.InstancedMesh(crownGeo, crownMat, palmSpots.length);
-palmSpots.forEach(([x, z], i) => {
-const lean = rng() * 0.12;
-tmpQuat.setFromEuler(new THREE.Euler(lean, rng() * Math.PI, lean * 0.5));
+for (let i = 0; i < 14; i += 1) {
+const p = offRoad(-40 + rng() * 80, -40 + rng() * 80);
+if (Math.abs(p[0]) < 9 && Math.abs(p[1]) < 9) p[0] = p[0] < 0 ? -9 : 9;
+palmSpots.push(p);
+}
+const drng = makeRng(987654);
+const extraSpots = [];
+for (const r of WORLD.roads) {
+for (let t = -180; t <= 180; t += 60) {
+for (const s of [-1, 1]) {
+if (drng() < 0.45) extraSpots.push([r + 10 * s, t]);
+if (drng() < 0.45) extraSpots.push([t, r + 10 * s]);
+}
+}
+}
+for (let k = 0; k < 8; k += 1) {
+const a = k * Math.PI / 4 + 0.4;
+extraSpots.push([Math.cos(a) * 15, Math.sin(a) * 15]);
+}
+const allSpots = palmSpots.concat(extraSpots);
+const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, allSpots.length);
+const crowns = new THREE.InstancedMesh(crownGeo, crownMat, allSpots.length);
+const greens = [0x3e8e4e, 0x4aa85c, 0x2e7a3e, 0x5ab86a];
+allSpots.forEach(([x, z], i) => {
+const old = i < palmSpots.length;
+const lean = (old ? rng() : drng()) * 0.12;
+tmpQuat.setFromEuler(new THREE.Euler(lean, (old ? rng() : drng()) * Math.PI, lean * 0.5));
 tmpPos.set(x, 3.5, z); tmpScale.set(1, 1, 1);
 tmpMatrix.compose(tmpPos, tmpQuat, tmpScale);
 trunks.setMatrixAt(i, tmpMatrix);
 tmpPos.set(x, 7.6, z); tmpScale.set(1, 0.55, 1);
 tmpMatrix.compose(tmpPos, tmpQuat.identity(), tmpScale);
 crowns.setMatrixAt(i, tmpMatrix);
+crowns.setColorAt(i, tmpColor.setHex(greens[i % greens.length]));
 });
 trunks.castShadow = true;
 scene.add(trunks, crowns);
+
+const palmTrunkGeo = new THREE.CylinderGeometry(0.22, 0.32, 9, 6);
+const palmCrownGeo = new THREE.IcosahedronGeometry(3.6, 0);
+const palmCrownMat = new THREE.MeshLambertMaterial({ color: 0x4aa85c });
+const palmSpots2 = [];
+for (let z = -195; z <= 195; z += 30) palmSpots2.push([-221, z]);
+for (const z of [135, 165, 195]) palmSpots2.push([-200, z]);
+const palmTrunks = new THREE.InstancedMesh(palmTrunkGeo, trunkMat, palmSpots2.length);
+const palmCrowns = new THREE.InstancedMesh(palmCrownGeo, palmCrownMat, palmSpots2.length);
+palmSpots2.forEach(([x, z], i) => {
+const lean = drng() * 0.1;
+tmpQuat.setFromEuler(new THREE.Euler(lean, drng() * Math.PI, 0));
+tmpMatrix.compose(tmpPos.set(x, 4.5, z), tmpQuat, tmpScale.set(1, 1, 1));
+palmTrunks.setMatrixAt(i, tmpMatrix);
+tmpMatrix.compose(tmpPos.set(x, 9.4, z), tmpQuat.identity(), tmpScale.set(1, 0.32, 1));
+palmCrowns.setMatrixAt(i, tmpMatrix);
+});
+scene.add(palmTrunks, palmCrowns);
 
 
 const lampGeo = new THREE.CylinderGeometry(0.18, 0.24, 6, 6);
@@ -291,8 +378,8 @@ animated.lampMats.push(headMat);
 const lampSpots = [];
 for (const r of WORLD.roads) {
 for (let t = -210; t <= 210; t += 60) {
-lampSpots.push([r + 9, t + 30]);
-lampSpots.push([t + 30, r - 9]);
+lampSpots.push([r + 10.5, t + 30]);
+lampSpots.push([t + 30, r - 10.5]);
 }
 }
 const lampMesh = new THREE.InstancedMesh(lampGeo, lampMat, lampSpots.length);
@@ -334,23 +421,39 @@ g.add(hook);
 g.position.set(cx, 0, cz);
 g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
 scene.add(g);
-colliders.push({ x0: cx - 7, z0: cz - 6, x1: cx + 7, z1: cz + 6 });
+for (const [lx, lz] of [[-5, -4], [5, -4], [-5, 4], [5, 4]]) colliders.push({ x0: cx + lx - 0.8, z0: cz + lz - 0.8, x1: cx + lx + 0.8, z1: cz + lz + 0.8 });
 }
 const contGeo = new THREE.BoxGeometry(6, 2.6, 2.4);
 const contCols = [0xc23b2e, 0x2e6bc2, 0x3aa84e, 0xe8c832, 0x8a8f96];
 const contSpots = [];
 for (let i = 0; i < 26; i += 1) {
-contSpots.push([-90 + rng() * 240, 150 + rng() * 60, (rng() * contCols.length) | 0, rng() < 0.4 ? 1 : 0]);
+let x = -90 + rng() * 240, z = 150 + rng() * 60;
+const ci = (rng() * contCols.length) | 0, stacked = rng() < 0.4 ? 1 : 0;
+for (const r of WORLD.roads) {
+if (Math.abs(x - r) < 15) x = x < r ? r - 15 : r + 15;
+if (Math.abs(z - r) < 15) z = z < r ? r - 15 : r + 15;
 }
-const contMesh = new THREE.InstancedMesh(contGeo, new THREE.MeshLambertMaterial({ color: 0xffffff }), contSpots.length);
-contSpots.forEach(([x, z, ci, stacked], i) => {
-tmpPos.set(x, stacked ? 4.1 : 1.5, z);
-tmpQuat.setFromEuler(new THREE.Euler(0, (rng() < 0.5 ? 0 : Math.PI / 2), 0));
+contSpots.push([x, z, ci, stacked, 1.5]);
+}
+contSpots.push([-229, -184.5, 1, 0, 2.15], [-223, -184.5, 3, 1, 2.15], [-226, -188.5, 0, 0, 2.15]);
+const contMesh = new THREE.InstancedMesh(contGeo, new THREE.MeshLambertMaterial({ color: 0xffffff, map: makeContainerTexture() }), contSpots.length + contSpots.filter((s) => s[3]).length);
+let contIdx = 0;
+contSpots.forEach(([x, z, ci, stacked, baseY], i) => {
+tmpQuat.setFromEuler(new THREE.Euler(0, i < 26 ? (rng() < 0.5 ? 0 : Math.PI / 2) : 0, 0));
+tmpPos.set(x, baseY, z);
 tmpScale.set(1, 1, 1);
 tmpMatrix.compose(tmpPos, tmpQuat, tmpScale);
-contMesh.setMatrixAt(i, tmpMatrix);
-contMesh.setColorAt(i, tmpColor.setHex(contCols[ci]));
-if (!stacked) colliders.push({ x0: x - 3.2, z0: z - 2.6, x1: x + 3.2, z1: z + 2.6 });
+contMesh.setMatrixAt(contIdx, tmpMatrix);
+contMesh.setColorAt(contIdx, tmpColor.setHex(contCols[ci]));
+contIdx += 1;
+if (stacked) {
+tmpPos.set(x, baseY + 2.6, z);
+tmpMatrix.compose(tmpPos, tmpQuat, tmpScale);
+contMesh.setMatrixAt(contIdx, tmpMatrix);
+contMesh.setColorAt(contIdx, tmpColor.setHex(contCols[(ci + 1) % contCols.length]));
+contIdx += 1;
+}
+colliders.push({ x0: x - 3.2, z0: z - 2.6, x1: x + 3.2, z1: z + 2.6 });
 });
 contMesh.castShadow = true;
 scene.add(contMesh);
@@ -425,23 +528,106 @@ scene.add(fountain);
 colliders.push({ x0: -7, z0: -7, x1: 7, z1: 7 });
 
 
-const umbMat = new THREE.MeshLambertMaterial({ color: 0xe86a8a });
-const umbMat2 = new THREE.MeshLambertMaterial({ color: 0x2e8b8b });
-for (let i = 0; i < 8; i += 1) {
+const figGeo = new THREE.BoxGeometry(1, 1, 1);
+const figMats = new Map();
+const fmat = (c) => { let m = figMats.get(c); if (!m) { m = new THREE.MeshLambertMaterial({ color: c }); figMats.set(c, m); } return m; };
+function figure(x, y, z, rotY, shirt, pants, skin, seated, hair) {
 const g = new THREE.Group();
-const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 2.6, 5), plankMat);
-pole.position.y = 1.3;
-const top = new THREE.Mesh(new THREE.ConeGeometry(2, 0.9, 8), i % 2 ? umbMat : umbMat2);
-top.position.y = 2.7;
-g.add(pole, top);
-g.position.set(-220.5, 0, -180 + i * 48 + rng() * 10);
+const mk = (c, sx, sy, sz, py, pz) => { const m = new THREE.Mesh(figGeo, fmat(c)); m.scale.set(sx, sy, sz); m.position.set(0, py, pz); g.add(m); };
+mk(shirt, 0.62, 0.8, 0.36, seated ? 0.95 : 1.15, 0);
+mk(skin, 0.4, 0.4, 0.4, seated ? 1.52 : 1.72, 0);
+mk(hair, 0.42, 0.16, 0.42, seated ? 1.7 : 1.9, 0);
+if (seated) mk(pants, 0.5, 0.28, 0.75, 0.55, 0.2);
+else mk(pants, 0.5, 0.75, 0.3, 0.38, 0);
+g.position.set(x, y, z);
+g.rotation.y = rotY;
 scene.add(g);
 }
 
+const clearOf = (x, z, m) => {
+for (const c of colliders) if (x > c.x0 - m && x < c.x1 + m && z > c.z0 - m && z < c.z1 + m) return false;
+for (const r of WORLD.roads) if (Math.abs(x - r) < 8.5 || Math.abs(z - r) < 8.5) return false;
+for (const k in PLACES) { const p = PLACES[k]; if (Math.hypot(x - p.x, z - p.z) < 9) return false; }
+return true;
+};
+const cafeSpots = [];
+{
+const cands = [];
+for (const cx of [-180, -120, -60, 0, 60, 120, 180]) for (const cz of [-180, -120, -60, 0, 60, 120, 180]) {
+for (const [ox, oz] of [[20, 20], [-20, 20], [20, -20], [-20, -20]]) {
+const x = cx + ox, z = cz + oz;
+if (x > 4 && x < 44 && z > 140 && z < 164) continue;
+if (x > -10 && x < 22 && z > 170 && z < 202) continue;
+if (x < -196 && z > -144 && z < -104) continue;
+if (clearOf(x, z, 2.2)) cands.push([x, z, cx * 1000 + cz]);
+}
+}
+for (let i = cands.length - 1; i > 0; i -= 1) { const j = (drng() * (i + 1)) | 0; const t = cands[i]; cands[i] = cands[j]; cands[j] = t; }
+const usedBlocks = new Set();
+for (const c of cands) {
+if (cafeSpots.length >= 8) break;
+if (!usedBlocks.has(c[2]) && !cafeSpots.some((s) => Math.hypot(c[0] - s[0], c[1] - s[1]) < 40)) { cafeSpots.push(c); usedBlocks.add(c[2]); }
+}
+}
+const cafeCols = [0xe8392e, 0x2e7de8, 0xffd23e, 0x2ec85e, 0xff5a8a, 0x2ed8c8];
+const tableTops = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.7, 0.7, 0.08, 10), new THREE.MeshLambertMaterial({ color: 0xffffff }), cafeSpots.length);
+const tableLegs = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.07, 0.09, 0.75, 6), fmat(0x4a4a52), cafeSpots.length);
+const chairSeats = new THREE.InstancedMesh(new THREE.BoxGeometry(0.5, 0.08, 0.5), new THREE.MeshLambertMaterial({ color: 0xffffff }), cafeSpots.length * 2);
+const chairBacks = new THREE.InstancedMesh(new THREE.BoxGeometry(0.5, 0.55, 0.08), new THREE.MeshLambertMaterial({ color: 0xffffff }), cafeSpots.length * 2);
+const skinTones = [0xe8c39a, 0xc89a6a, 0x8a5a3a, 0xf0d0b0];
+const shirtCols = [0xe8392e, 0x2e7de8, 0xffd23e, 0x2ec85e, 0xf2f2f2, 0xff5a8a, 0x8a5ae8];
+cafeSpots.forEach(([x, z], i) => {
+const a = drng() * Math.PI;
+const dx = Math.cos(a), dz = Math.sin(a);
+tmpMatrix.compose(tmpPos.set(x, 1.05, z), tmpQuat.identity(), tmpScale.set(1, 1, 1));
+tableTops.setMatrixAt(i, tmpMatrix);
+tableTops.setColorAt(i, tmpColor.setHex(cafeCols[i % cafeCols.length]));
+tmpMatrix.compose(tmpPos.set(x, 0.68, z), tmpQuat.identity(), tmpScale.set(1, 1, 1));
+tableLegs.setMatrixAt(i, tmpMatrix);
+for (let k = 0; k < 2; k += 1) {
+const s = k ? 1 : -1;
+const q = tmpQuat.setFromEuler(new THREE.Euler(0, a + (k ? 0 : Math.PI), 0));
+tmpMatrix.compose(tmpPos.set(x + dx * 1.2 * s, 0.75, z + dz * 1.2 * s), q, tmpScale.set(1, 1, 1));
+chairSeats.setMatrixAt(i * 2 + k, tmpMatrix);
+chairSeats.setColorAt(i * 2 + k, tmpColor.setHex(cafeCols[(i + k + 1) % cafeCols.length]));
+tmpMatrix.compose(tmpPos.set(x + dx * 1.45 * s, 1.0, z + dz * 1.45 * s), q, tmpScale.set(1, 1, 1));
+chairBacks.setMatrixAt(i * 2 + k, tmpMatrix);
+chairBacks.setColorAt(i * 2 + k, tmpColor.setHex(cafeCols[(i + k + 1) % cafeCols.length]));
+figure(x + dx * 1.2 * s, 0.3, z + dz * 1.2 * s, Math.atan2(-dx * s, -dz * s), shirtCols[(i * 2 + k) % shirtCols.length], 0x2a3a5a, skinTones[(i + k) % skinTones.length], true, 0x2a2a2a);
+}
+colliders.push({ x0: x - 1.6, z0: z - 1.6, x1: x + 1.6, z1: z + 1.6 });
+});
+scene.add(tableTops, tableLegs, chairSeats, chairBacks);
 
-colliders.push({ x0: -400, z0: -400, x1: -224, z1: -126 });
-colliders.push({ x0: -400, z0: -114, x1: -224, z1: 400 });
-colliders.push({ x0: -400, z0: -400, x1: -233, z1: -114 });
+const umbZ = [];
+for (let i = 0; i < 8; i += 1) umbZ.push(-180 + i * 48 + rng() * 10);
+umbZ.push(-204, -156, -96, -12, 28, 84, 132, 180);
+const umbCols = [0xe86a8a, 0x2e8b8b, 0xffd23e, 0xff7a2e, 0x8a5ae8];
+const umbPoles = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.09, 0.09, 2.6, 5), plankMat, umbZ.length);
+const umbTops = new THREE.InstancedMesh(new THREE.ConeGeometry(2, 0.9, 8), new THREE.MeshLambertMaterial({ color: 0xffffff, side: THREE.DoubleSide }), umbZ.length);
+umbZ.forEach((z, i) => {
+tmpMatrix.compose(tmpPos.set(-220.5, 1.3, z), tmpQuat.identity(), tmpScale.set(1, 1, 1));
+umbPoles.setMatrixAt(i, tmpMatrix);
+tmpMatrix.compose(tmpPos.set(-220.5, 2.7, z), tmpQuat.identity(), tmpScale.set(1, 1, 1));
+umbTops.setMatrixAt(i, tmpMatrix);
+umbTops.setColorAt(i, tmpColor.setHex(umbCols[i % umbCols.length]));
+});
+scene.add(umbPoles, umbTops);
+const loungeZ = [-190, -160, -130, -100, -70, -40, -10, 20, 50, 80];
+const lounges = new THREE.InstancedMesh(new THREE.BoxGeometry(0.6, 0.25, 1.8), new THREE.MeshLambertMaterial({ color: 0xffffff }), loungeZ.length);
+loungeZ.forEach((z, i) => {
+tmpQuat.setFromEuler(new THREE.Euler(0, (drng() - 0.5) * 0.6, 0));
+tmpMatrix.compose(tmpPos.set(-219, 0.18, z), tmpQuat, tmpScale.set(1, 1, 1));
+lounges.setMatrixAt(i, tmpMatrix);
+lounges.setColorAt(i, tmpColor.setHex(umbCols[(i + 2) % umbCols.length]));
+});
+scene.add(lounges);
+for (const z of [-150, -90, -20, 70, 110, 175]) {
+figure(-220, 0.05, z, drng() * Math.PI * 2, shirtCols[(z + 150) % shirtCols.length], 0x3a6a8a, skinTones[(z + 90) % skinTones.length], false, 0x1a1a1a);
+}
+
+
+colliders.push({ x0: -400, z0: -400, x1: -300, z1: 400 });
 
 
 const starGeo = new THREE.BufferGeometry();

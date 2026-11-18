@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { TUNE, PALETTE } from './config.js';
 import { S } from './state.js';
 import { clamp, damp, dampAngle, angleDelta, circleVsBox, dist2D } from './util.js';
-import { buildPersonRig, animateRig, knockPed } from './characters.js';
+import { buildPersonRig, animateRig, knockPed, angerPed } from './characters.js';
 import { nearestCar, respawnParkedCar } from './vehicles.js';
 import { input, axis } from './input.js';
 import { cameraForward } from './camera.js';
@@ -10,7 +10,7 @@ import { cameraForward } from './camera.js';
 const raycaster = new THREE.Raycaster();
 
 export function createPlayer(x, z, heading) {
-const rig = buildPersonRig({ face: 'lena', shirt: 0x2e8a6a, pants: 0x2a3a5a, skin: 0xe8c39a, cap: null });
+const rig = buildPersonRig({ face: 'lena', shirt: 0xf2f2f2, pants: 0x2e5ac8, skin: 0xe8c39a, cap: null });
 rig.group.position.set(x, 0.3, z);
 S.scene.add(rig.group);
 const player = {
@@ -24,6 +24,11 @@ aiming: false,
 fireCooldown: 0,
 reloadTimer: 0,
 gun: null,
+rpgTube: null,
+rockets: 6,
+rpgCooldown: 0,
+punchCooldown: 0,
+punchAnim: 0,
 };
 
 const gun = new THREE.Group();
@@ -36,6 +41,12 @@ gun.position.set(0, -0.66, 0);
 rig.armR.add(gun);
 gun.visible = false;
 player.gun = gun;
+const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.9, 8), new THREE.MeshLambertMaterial({ color: 0x3a4a3a }));
+tube.rotation.x = Math.PI / 2 - 0.15;
+tube.position.set(0, -0.5, -0.3);
+rig.armR.add(tube);
+tube.visible = false;
+player.rpgTube = tube;
 S.player = player;
 return player;
 }
@@ -45,13 +56,17 @@ for (const b of S.colliders) {
 const hit = circleVsBox(p.pos.x, p.pos.z, 0.55, b);
 if (hit) { p.pos.x = hit.x; p.pos.z = hit.z; }
 }
-p.pos.x = clamp(p.pos.x, -233, 238);
+p.pos.x = clamp(p.pos.x, -300, 238);
 p.pos.z = clamp(p.pos.z, -238, 238);
 }
 
 function tryEnterCar() {
 const car = nearestCar(S.player.pos.x, S.player.pos.z, 4.5);
 if (!car) return;
+if (S.swimming && car.type !== 'boat') {
+S.hud?.toast('Too deep to steal that — swim to shore first!');
+return;
+}
 
 if (car.driver === 'traffic') {
 S.audio?.carDoor();
@@ -167,6 +182,149 @@ p.reloadTimer = 1.3;
 S.audio?.reload();
 }
 
+const rockets = [];
+const rocketGeo = new THREE.CylinderGeometry(0.09, 0.09, 0.7, 6);
+const rocketMat = new THREE.MeshBasicMaterial({ color: 0xffcc44 });
+const UP = new THREE.Vector3(0, 1, 0);
+
+function fireRpg() {
+const p = S.player;
+if (p.rpgCooldown > 0 || S.swimming) return;
+if (p.rockets <= 0) {
+S.audio?.click();
+S.hud?.toast('No rockets left — finish a mission to resupply.');
+p.rpgCooldown = 0.5;
+return;
+}
+p.rpgCooldown = 1.2;
+p.rockets -= 1;
+S.playerFiredTimer = 2.5;
+S.stats.shotsFired += 1;
+S.audio?.shot(0, true);
+addShake(0.25);
+const dir = new THREE.Vector3();
+S.camera.getWorldDirection(dir);
+const from = new THREE.Vector3(p.pos.x, p.pos.y + 1.4, p.pos.z).addScaledVector(dir, 1.2);
+const mesh = new THREE.Mesh(rocketGeo, rocketMat);
+mesh.position.copy(from);
+mesh.quaternion.setFromUnitVectors(UP, dir);
+S.scene.add(mesh);
+let homing = false;
+if (S.heli) {
+const toH = new THREE.Vector3().subVectors(S.heli.group.position, p.pos);
+toH.y = 0;
+const flat = dir.clone();
+flat.y = 0;
+homing = toH.lengthSq() > 0.01 && flat.lengthSq() > 0.01 && toH.normalize().dot(flat.normalize()) > 0.7;
+}
+rockets.push({ mesh, vel: dir.multiplyScalar(30), life: 3.5, trail: 0, homing });
+}
+
+function updateRockets(dt) {
+for (let i = rockets.length - 1; i >= 0; i -= 1) {
+const r = rockets[i];
+r.life -= dt;
+if (r.homing && S.heli) {
+const toH = new THREE.Vector3().subVectors(S.heli.group.position, r.mesh.position);
+const dH = toH.length();
+if (dH > 4 && dH < 80) {
+const want = toH.normalize().multiplyScalar(30);
+r.vel.lerp(want, clamp(2.5 * dt, 0, 1)).setLength(30);
+r.mesh.quaternion.setFromUnitVectors(UP, r.vel.clone().normalize());
+}
+}
+r.mesh.position.addScaledVector(r.vel, dt);
+r.trail -= dt;
+if (r.trail <= 0) {
+r.trail = 0.03;
+S.effects?.smoke(r.mesh.position.x, r.mesh.position.y, r.mesh.position.z, 0xcccccc);
+}
+const pos = r.mesh.position;
+let hit = pos.y <= 0.15 || r.life <= 0;
+if (!hit && S.heli && pos.distanceTo(S.heli.group.position) < 5) hit = true;
+if (!hit) for (const b of S.colliders) {
+const h = circleVsBox(pos.x, pos.z, 0.3, b);
+if (h) { hit = true; break; }
+}
+if (!hit) for (const pc of S.police) {
+if (!pc.car.dead && dist2D(pos.x, pos.z, pc.car.pos.x, pc.car.pos.z) < 2.4 && pos.y < 3) { hit = true; break; }
+}
+if (!hit) for (const rv of S.rivals) {
+if (!rv.down && dist2D(pos.x, pos.z, rv.pos.x, rv.pos.z) < 1.3 && pos.y < 2.2) { hit = true; break; }
+}
+if (hit) {
+explodeRocket(pos);
+S.scene.remove(r.mesh);
+rockets.splice(i, 1);
+}
+}
+}
+
+function explodeRocket(pos) {
+S.effects?.burst(pos.x, pos.y, pos.z, 0xff8833, 34, 9);
+S.effects?.smoke(pos.x, pos.y, pos.z, 0x333333);
+S.audio?.explosion(dist2D(pos.x, pos.z, S.player.pos.x, S.player.pos.z));
+addShake(0.5);
+S.playerFiredTimer = 2.5;
+for (const pc of S.police) {
+if (!pc.car.dead && dist2D(pos.x, pos.z, pc.car.pos.x, pc.car.pos.z) < 7) pc.car.health -= 120;
+}
+for (const rv of S.rivals) {
+if (!rv.down && dist2D(pos.x, pos.z, rv.pos.x, rv.pos.z) < 7) {
+const killed = damageRivalRef(rv, 120, pos.x, pos.z);
+if (killed) S.mission?.onRivalDown?.();
+}
+}
+if (S.heli && pos.distanceTo(S.heli.group.position) < 9) {
+S.heli.hp -= 70;
+if (S.heli.hp <= 0) {
+S.effects?.burst(S.heli.group.position.x, S.heli.group.position.y, S.heli.group.position.z, 0xff5533, 40, 10);
+S.scene.remove(S.heli.group);
+S.heli = null;
+S.heliCooldown = 25;
+S.hud?.toast('Helicopter down!');
+}
+}
+for (const ped of S.peds) {
+if (!ped.down && dist2D(pos.x, pos.z, ped.pos.x, ped.pos.z) < 7) {
+knockPed(ped, pos.x, pos.z);
+S.wanted = Math.max(S.wanted, 2);
+}
+}
+if (!S.driving && dist2D(pos.x, pos.z, S.player.pos.x, S.player.pos.z) < 4) damagePlayer(25, pos.x, pos.z);
+}
+
+function punch() {
+const p = S.player;
+const fx = Math.cos(p.heading), fz = -Math.sin(p.heading);
+p.punchAnim = 0.25;
+S.audio?.thud(3);
+S.playerFiredTimer = 1.5;
+for (const r of S.rivals) {
+if (r.down) continue;
+const dx = r.pos.x - p.pos.x, dz = r.pos.z - p.pos.z;
+if (Math.hypot(dx, dz) < 2.3 && dx * fx + dz * fz > 0.5) {
+const killed = damageRivalRef(r, 12, p.pos.x, p.pos.z);
+if (killed) {
+S.hud?.toast('Rival down.');
+S.mission?.onRivalDown?.();
+}
+return;
+}
+}
+let best = null, bestD = 2.3;
+for (const ped of S.peds) {
+if (ped.down) continue;
+const dx = ped.pos.x - p.pos.x, dz = ped.pos.z - p.pos.z;
+const d = Math.hypot(dx, dz);
+if (d < bestD && dx * fx + dz * fz > 0.3) { best = ped; bestD = d; }
+}
+if (best) {
+angerPed(best, p.pos.x, p.pos.z);
+S.wanted = Math.max(S.wanted, 1);
+}
+}
+
 export function damagePlayer(amount, fromX, fromZ) {
 if (S.screen !== 'play' || S.godTimer > 0) return;
 if (S.armor > 0) {
@@ -192,6 +350,9 @@ export function updatePlayer(dt) {
 const p = S.player;
 if (!p) return;
 p.fireCooldown -= dt;
+p.rpgCooldown -= dt;
+p.punchCooldown -= dt;
+updateRockets(dt);
 if (p.reloadTimer > 0) {
 p.reloadTimer -= dt;
 if (p.reloadTimer <= 0) S.ammo = TUNE.magSize;
@@ -200,9 +361,14 @@ S.playerFiredTimer -= dt;
 S.godTimer -= dt;
 
 if (S.driving) {
+S.swimming = false;
 updateDriving(dt);
 return;
 }
+
+const wasSwim = S.swimming;
+S.swimming = p.pos.x < -224;
+if (S.swimming && !wasSwim) S.hud?.toast('Swimming — head for shore to get out.');
 
 const a = axis();
 const fwd = cameraForward();
@@ -212,7 +378,7 @@ const move = new THREE.Vector3()
 .addScaledVector(right, a.x);
 const moving = move.lengthSq() > 0.01;
 const sprint = input.keys.has('ShiftLeft') || input.keys.has('ShiftRight');
-const speed = sprint ? TUNE.sprintSpeed : TUNE.walkSpeed;
+const speed = S.swimming ? 3.2 : sprint ? TUNE.sprintSpeed : TUNE.walkSpeed;
 if (moving) {
 move.normalize();
 const wantHeading = Math.atan2(-move.z, move.x);
@@ -227,10 +393,14 @@ p.moveSpeed = damp(p.moveSpeed, 0, 10, dt);
 playerCollide(p);
 
 
-if (input.pressed.has('Space') && p.grounded) {
+if (input.pressed.has('Space') && p.grounded && !S.swimming) {
 p.vy = TUNE.jumpVel;
 p.grounded = false;
 S.audio?.jump();
+}
+if (S.swimming) {
+p.grounded = true;
+p.vy = 0;
 }
 if (!p.grounded) {
 p.vy -= TUNE.gravity * dt;
@@ -243,14 +413,20 @@ p.grounded = true;
 }
 
 
-p.aiming = input.mouseDown && S.weapon === 'pistol';
-p.gun.visible = p.aiming || S.ammo < TUNE.magSize;
+p.aiming = input.mouseDown && S.weapon !== 'fists' && !S.swimming;
+p.gun.visible = (p.aiming || S.ammo < TUNE.magSize) && S.weapon === 'pistol';
+p.rpgTube.visible = S.weapon === 'rpg';
 if (p.aiming) {
 
 const look = new THREE.Vector3();
 S.camera.getWorldDirection(look);
 p.heading = dampAngle(p.heading, Math.atan2(-look.z, look.x), 16, dt);
-shoot();
+if (S.weapon === 'pistol') shoot();
+else fireRpg();
+}
+if (input.mouseClicked && S.weapon === 'fists' && !S.swimming && p.punchCooldown <= 0) {
+p.punchCooldown = 0.45;
+punch();
 }
 if (input.pressed.has('KeyR')) startReload();
 
@@ -285,7 +461,33 @@ S.audio?.thud(8);
 }
 
 p.rig.group.rotation.y = p.heading - Math.PI / 2;
+if (S.swimming) {
+p.rig.phase += Math.max(p.moveSpeed, 1.2) * dt * 1.9;
+const s = Math.sin(p.rig.phase), c = Math.cos(p.rig.phase);
+p.rig.group.rotation.x = damp(p.rig.group.rotation.x, -1.15, 6, dt);
+p.rig.armL.rotation.x = s * 1.1 - 0.4;
+p.rig.armR.rotation.x = -s * 1.1 - 0.4;
+p.rig.elbowL.rotation.x = -0.3;
+p.rig.elbowR.rotation.x = -0.3;
+p.rig.legL.rotation.x = s * 0.35;
+p.rig.legR.rotation.x = -s * 0.35;
+p.rig.kneeL.rotation.x = -0.2;
+p.rig.kneeR.rotation.x = -0.2;
+p.rig.torso.rotation.x = 0;
+p.rig.torso.rotation.y = 0;
+p.rig.head.rotation.x = 0.35;
+p.rig.head.rotation.y = 0;
+p.rig.group.position.y = 0.05 + Math.abs(c) * 0.03;
+} else {
+p.rig.group.rotation.x = damp(p.rig.group.rotation.x, 0, 8, dt);
+p.rig.head.rotation.x = damp(p.rig.head.rotation.x, 0, 8, dt);
 animateRig(p.rig, p.moveSpeed, dt, p.aiming);
+if (p.punchAnim > 0) {
+p.punchAnim -= dt;
+p.rig.armR.rotation.x = -1.7;
+p.rig.elbowR.rotation.x = -0.1;
+}
+}
 }
 
 function updateDriving(dt) {

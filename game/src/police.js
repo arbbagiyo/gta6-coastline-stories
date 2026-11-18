@@ -31,7 +31,7 @@ g.add(pool);
 const p = S.player.pos;
 g.position.set(p.x + 30, 46, p.z + 30);
 S.scene.add(g);
-S.heli = { group: g, rotor, pos: g.position, angle: 0 };
+S.heli = { group: g, rotor, pos: g.position, angle: 0, hp: 100 };
 }
 
 function updateHeli(dt) {
@@ -113,13 +113,14 @@ return d;
 }
 
 export function updatePolice(dt) {
+S.heliCooldown = Math.max(0, S.heliCooldown - dt);
 const wantCount = S.wanted === 0 ? 0 : Math.min(TUNE.policeMax, 1 + S.wanted);
 while (S.police.length < wantCount) spawnPoliceCar();
 while (S.police.length > wantCount) {
 const unit = S.police.pop();
 S.scene.remove(unit.car.mesh);
 }
-if (S.wanted >= 3 && !S.heli) spawnHeli();
+if (S.wanted >= 3 && !S.heli && S.heliCooldown <= 0) spawnHeli();
 if (S.wanted < 3 && S.heli) { S.scene.remove(S.heli.group); S.heli = null; }
 if (S.wanted === 0) return;
 
@@ -129,7 +130,7 @@ for (const unit of S.police) {
 const car = unit.car;
 const d = policeSteer(unit, dt);
 updateCarPhysics(car, dt);
-nearest = Math.min(nearest, d);
+if (!car.dead) nearest = Math.min(nearest, d);
 
 car.sirenPhase += dt * 10;
 const on = Math.sin(car.sirenPhase) > 0;
@@ -140,7 +141,7 @@ car.parts.lightBar.b.color.setHex(on ? 0x000055 : 0x3355ff);
 
 
 const loud = S.playerFiredTimer > 0 || (S.driving && Math.abs(S.driving.speed) > 20);
-if (d < 45 || loud) anySees = true;
+if (!car.dead && (d < 45 || loud)) anySees = true;
 
 if (d > 220) {
 S.scene.remove(car.mesh);
