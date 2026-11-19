@@ -119,7 +119,7 @@ scene.add(ribbon(true, r, 0.04, 10, walkRibbonMat, 80, 3.3, true), ribbon(false,
 scene.add(ribbon(true, r, 0.06, 7, roadMat, 1, 1), ribbon(false, r, 0.07, 7, roadMat, 1, 1));
 }
 
-scene.add(ribbon(false, -214, 0.08, 3, new THREE.MeshLambertMaterial({ map: makeSidewalkTexture() }), 1, 1, true));
+scene.add(ribbon(false, -220, 0.08, 3, new THREE.MeshLambertMaterial({ map: makeSidewalkTexture() }), 1, 1, true));
 
 const dashX = [];
 const dashZ = [];
