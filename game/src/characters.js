@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { WORLD, TUNE, CHARACTERS } from './config.js';
-import { S } from './state.js';
+import { S, addRespect } from './state.js';
 import { makeRng, clamp, damp, circleVsBox, dist2D } from './util.js';
 
 const SKIN = [0xf2d3b3, 0xe8c39a, 0xd9a878, 0xc98d5e, 0xa0663f, 0x8a5a3a, 0x6e4526];
@@ -415,8 +415,9 @@ continue;
 }
 }
 let fleeing = ped.state === 'flee';
-if (threat && S.playerFiredTimer > 0 && dist2D(ped.pos.x, ped.pos.z, threat.x, threat.z) < 30) fleeing = true;
-if (S.wanted > 0 && dist2D(ped.pos.x, ped.pos.z, threat.x, threat.z) < 22) fleeing = true;
+const fleeRadius = Math.max(12, 30 - S.respect * 0.15);
+if (threat && S.playerFiredTimer > 0 && dist2D(ped.pos.x, ped.pos.z, threat.x, threat.z) < fleeRadius) fleeing = true;
+if (S.wanted > 0 && dist2D(ped.pos.x, ped.pos.z, threat.x, threat.z) < Math.max(10, 22 - S.respect * 0.1)) fleeing = true;
 if (fleeing) {
 ped.state = 'flee';
 ped.stateTimer = 2.5;
@@ -473,13 +474,14 @@ S.effects?.burst(ped.pos.x, 1, ped.pos.z, 0xcc4444, 6, 2);
 export function spawnRival(x, z, opts = {}) {
 const rig = buildPersonRig(randomLook(makeRng((Math.random() * 1e9) | 0), 'rival'));
 rig.group.position.set(x, 0.3, z);
+if (opts.boss) rig.group.scale.multiplyScalar(1.14);
 S.scene.add(rig.group);
 const rival = {
 rig, pos: rig.group.position, heading: Math.random() * Math.PI * 2,
 health: opts.health ?? 60, state: 'guard',
 shootTimer: 1 + Math.random(), strafeDir: Math.random() < 0.5 ? 1 : -1, strafeTimer: 0,
 home: { x, z }, accuracy: opts.accuracy ?? 0.3, damage: opts.damage ?? 7,
-down: false, fade: 1,
+down: false, fade: 1, boss: !!opts.boss,
 };
 S.rivals.push(rival);
 return rival;
@@ -554,6 +556,7 @@ rival.down = true;
 rival.rig.group.rotation.x = Math.PI / 2 - 0.1;
 rival.rig.group.rotation.y = Math.atan2(-(rival.pos.z - fromZ), rival.pos.x - fromX) - Math.PI / 2;
 S.stats.rivalsDown += 1;
+addRespect(1);
 S.audio?.thud(6);
 return true;
 }

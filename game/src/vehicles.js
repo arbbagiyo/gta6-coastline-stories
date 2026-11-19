@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { WORLD, PALETTE, TUNE } from './config.js';
 import { S } from './state.js';
-import { makeRng, clamp, damp, angleDelta, circleVsBox, dist2D, roadWave } from './util.js';
+import { makeRng, clamp, damp, angleDelta, circleVsBox, dist2D } from './util.js';
 import { makeTaxiTexture } from './textures.js';
 
 const CAR_TYPES = {
@@ -156,7 +156,7 @@ return car;
 
 function onRoad(x, z) {
 for (const r of WORLD.roads) {
-if (Math.abs(x - (r + roadWave(z))) < WORLD.roadWidth / 2 + 1 || Math.abs(z - (r + roadWave(x))) < WORLD.roadWidth / 2 + 1) return true;
+if (Math.abs(x - r) < WORLD.roadWidth / 2 + 1 || Math.abs(z - r) < WORLD.roadWidth / 2 + 1) return true;
 }
 return false;
 }
@@ -199,7 +199,7 @@ let r = car.route;
 const alongNow = r.axis === 'x' ? car.pos.x : car.pos.z;
 if ((r.end - alongNow) * r.dir <= 0) { pickRoute(car); r = car.route; }
 const sAhead = (r.axis === 'x' ? car.pos.x : car.pos.z) + r.dir * 10;
-const lat = r.road + roadWave(sAhead) + r.side;
+const lat = r.road + r.side;
 const tx = r.axis === 'x' ? sAhead : lat;
 const tz = r.axis === 'x' ? lat : sAhead;
 const dx = tx - car.pos.x, dz = tz - car.pos.z;
@@ -265,8 +265,8 @@ if (car.dead) {
 car.speed = damp(car.speed, 0, 4, dt);
 } else {
 const offroad = car.type !== 'boat' && !onRoad(car.pos.x, car.pos.z);
-const top = (offroad ? t.top * 0.55 : t.top) * car.topMul;
-if (car.throttle > 0) car.speed += t.accel * car.throttle * dt;
+const top = (offroad ? t.top * 0.55 : t.top) * car.topMul * (car.nitroActive ? 1.18 : 1);
+if (car.throttle > 0) car.speed += t.accel * car.throttle * dt * (car.nitroActive ? 1.6 : 1);
 if (car.brake) car.speed -= (car.speed > 0 ? 26 : 10) * dt;
 if (car.handbrake) car.speed = damp(car.speed, 0, 3.2, dt);
 
@@ -363,8 +363,8 @@ const alongX = rng() < 0.5;
 const t = -200 + rng() * 400;
 const heading = alongX ? (rng() < 0.5 ? 0 : Math.PI) : (rng() < 0.5 ? Math.PI / 2 : -Math.PI / 2);
 const side = alongX ? (heading === 0 ? 3.4 : -3.4) : (heading > 0 ? 3.4 : -3.4);
-const x = alongX ? t : rx + roadWave(t) + side;
-const z = alongX ? rz + roadWave(t) + side : t;
+const x = alongX ? t : rx + side;
+const z = alongX ? rz + side : t;
 const type = types[(rng() * types.length) | 0];
 const color = type === 'taxi' ? 0xf2c230 : PALETTE.carPaints[(rng() * PALETTE.carPaints.length) | 0];
 const car = createCar(type, x, z, heading, color, 'traffic');
@@ -377,8 +377,8 @@ for (let i = 0; i < TUNE.parkedCount; i += 1) {
 const rx = WORLD.roads[(rng() * WORLD.roads.length) | 0];
 const alongX = rng() < 0.5;
 const t = -190 + rng() * 380;
-const x = alongX ? t : rx + roadWave(t) + (rng() < 0.5 ? -5.6 : 5.6);
-const z = alongX ? rx + roadWave(t) + (rng() < 0.5 ? -5.6 : 5.6) : t;
+const x = alongX ? t : rx + (rng() < 0.5 ? -5.6 : 5.6);
+const z = alongX ? rx + (rng() < 0.5 ? -5.6 : 5.6) : t;
 const heading = alongX ? (rng() < 0.5 ? 0 : Math.PI) : (rng() < 0.5 ? Math.PI / 2 : -Math.PI / 2);
 const type = types[(rng() * types.length) | 0];
 const color = type === 'taxi' ? 0xf2c230 : PALETTE.carPaints[(rng() * PALETTE.carPaints.length) | 0];
@@ -403,7 +403,7 @@ const rx = WORLD.roads[(Math.random() * WORLD.roads.length) | 0];
 const east = Math.random() < 0.5;
 car.heading = east ? 0 : Math.PI;
 car.pos.x = clamp(S.player.pos.x + (Math.random() < 0.5 ? -1 : 1) * (120 + Math.random() * 60), -230, 230);
-car.pos.z = rx + roadWave(car.pos.x) + (east ? 3.4 : -3.4);
+car.pos.z = rx + (east ? 3.4 : -3.4);
 pickRoute(car);
 }
 }
@@ -417,7 +417,7 @@ carVsCar(dt);
 export function nearestCar(x, z, maxDist) {
 let best = null, bestD = maxDist;
 for (const car of [...S.traffic, ...S.parked]) {
-if (car.dead) continue;
+if (car.dead || car.roadblock) continue;
 const d = dist2D(x, z, car.pos.x, car.pos.z);
 if (d < bestD) { best = car; bestD = d; }
 }

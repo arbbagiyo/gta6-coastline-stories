@@ -112,6 +112,67 @@ car.handbrake = Math.abs(dd) > 1.4 && Math.abs(car.speed) > 10;
 return d;
 }
 
+let roadblockTimer = 0;
+
+function spawnRoadblock(x, z, acrossX) {
+const cars = [];
+for (const off of [-3.4, 3.4]) {
+const cx = acrossX ? x : x + off;
+const cz = acrossX ? z + off : z;
+const car = createCar('police', clamp(cx, -230, 230), clamp(cz, -230, 230), acrossX ? Math.PI / 2 : 0, 0x1a2530, 'roadblock');
+car.roadblock = true;
+S.parked.push(car);
+cars.push(car);
+}
+const rb = { x, z, cars, warned: false };
+S.roadblocks.push(rb);
+return rb;
+}
+
+export function clearRoadblocks() {
+for (const rb of S.roadblocks) {
+for (const car of rb.cars) {
+S.scene.remove(car.mesh);
+const i = S.parked.indexOf(car);
+if (i >= 0) S.parked.splice(i, 1);
+}
+}
+S.roadblocks.length = 0;
+}
+
+function updateRoadblocks(dt) {
+if (S.wanted < 4) {
+if (S.roadblocks.length) clearRoadblocks();
+return;
+}
+roadblockTimer -= dt;
+const p = S.player.pos;
+const roads = WORLD.roads;
+const nearRoad = (v) => roads.reduce((a, b) => (Math.abs(b - v) < Math.abs(a - v) ? b : a));
+if (S.roadblocks.length < 2 && roadblockTimer <= 0) {
+roadblockTimer = 4;
+const rx = clamp(p.x + 80, -225, 225);
+const rz = nearRoad(p.z);
+const rb1 = spawnRoadblock(rx, rz, true);
+const rz2 = clamp(p.z + 80, -225, 225);
+const rx2 = nearRoad(p.x);
+spawnRoadblock(rx2, rz2, false);
+if (rb1) S.hud?.toast('Roadblock ahead — the PD sealed the roads!');
+}
+for (const rb of S.roadblocks) {
+const d = dist2D(p.x, p.z, rb.x, rb.z);
+if (!rb.warned && d < 45) {
+rb.warned = true;
+S.hud?.toast('Roadblock ahead! Ram it or turn around.');
+S.audio?.alert();
+}
+}
+if (S.roadblocks.length && S.roadblocks.every((rb) => dist2D(p.x, p.z, rb.x, rb.z) > 160)) {
+clearRoadblocks();
+roadblockTimer = 0;
+}
+}
+
 export function updatePolice(dt) {
 S.heliCooldown = Math.max(0, S.heliCooldown - dt);
 const wantCount = S.wanted === 0 ? 0 : Math.min(TUNE.policeMax, 1 + S.wanted);
@@ -122,6 +183,7 @@ S.scene.remove(unit.car.mesh);
 }
 if (S.wanted >= 3 && !S.heli && S.heliCooldown <= 0) spawnHeli();
 if (S.wanted < 3 && S.heli) { S.scene.remove(S.heli.group); S.heli = null; }
+updateRoadblocks(dt);
 if (S.wanted === 0) return;
 
 let anySees = false;
@@ -183,6 +245,7 @@ updateHeli(dt);
 export function clearPolice() {
 for (const unit of S.police) S.scene.remove(unit.car.mesh);
 S.police.length = 0;
+clearRoadblocks();
 if (S.heli) { S.scene.remove(S.heli.group); S.heli = null; }
 S.audio?.sirenOn(false);
 }

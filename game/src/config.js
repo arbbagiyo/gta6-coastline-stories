@@ -76,11 +76,24 @@ policeMax: 6,
 wantedDecayHidden: 9,
 bustRange: 3.2,
 bustTime: 1.6,
-missionReward: [400, 650, 900, 1200, 2500],
+missionReward: [400, 650, 900, 1200, 2500, 1500, 1800, 3000],
 courierPay: 150,
 shellCount: 10,
 shellPay: 100,
 };
+
+export const WEAPONS = {
+pistol: { mag: 12, dmg: 34, cd: 0.16 },
+smg: { mag: 30, dmg: 16, cd: 0.085 },
+};
+
+export const GARAGE_UPGRADES = {
+engine: { name: 'Engine', desc: '+12% top speed per level', max: 3, costs: [400, 800, 1400] },
+armor: { name: 'Armor', desc: '+50 car health per level', max: 3, costs: [300, 600, 1000] },
+nitro: { name: 'Nitro', desc: 'Hold Shift while driving to boost', max: 2, costs: [500, 900] },
+};
+
+export const RESPECT_GATES = { garageWars: 25, ledgersPrice: 40, kingOfCoast: 55 };
 
 export const RADIO = [
 { name: 'TIDE FM 88.5', style: 'Sunset synth', bpm: 112, root: 220, mode: 'minor' },

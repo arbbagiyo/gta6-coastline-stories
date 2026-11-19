@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { TUNE, PALETTE } from './config.js';
-import { S } from './state.js';
+import { TUNE, PALETTE, WEAPONS } from './config.js';
+import { S, addRespect } from './state.js';
 import { clamp, damp, dampAngle, angleDelta, circleVsBox, dist2D } from './util.js';
 import { buildPersonRig, animateRig, knockPed, angerPed } from './characters.js';
 import { nearestCar, respawnParkedCar } from './vehicles.js';
@@ -73,10 +73,13 @@ S.audio?.carDoor();
 S.hud?.toast('Car jacked — the driver fled!');
 S.wanted = Math.max(S.wanted, 1);
 S.stats.carsStolen += 1;
+addRespect(2);
+car.jacked = true;
 S.traffic.splice(S.traffic.indexOf(car), 1);
 } else {
 S.audio?.carDoor();
 S.stats.carsStolen += 1;
+car.jacked = false;
 S.parked.splice(S.parked.indexOf(car), 1);
 setTimeout(respawnParkedCar, 8000);
 }
@@ -107,13 +110,17 @@ S.audio?.carDoor();
 function shoot() {
 const p = S.player;
 if (p.reloadTimer > 0 || p.fireCooldown > 0) return;
-if (S.ammo <= 0) {
+const def = WEAPONS[S.weapon];
+if (!def) return;
+const ammo = S.weapon === 'smg' ? S.smgAmmo : S.ammo;
+if (ammo <= 0) {
 S.audio?.click();
 startReload();
 return;
 }
-p.fireCooldown = 0.16;
-S.ammo -= 1;
+p.fireCooldown = def.cd;
+if (S.weapon === 'smg') S.smgAmmo -= 1;
+else S.ammo -= 1;
 S.playerFiredTimer = 2.5;
 S.stats.shotsFired += 1;
 S.audio?.shot(0, true);
@@ -137,7 +144,7 @@ const d = closest.distanceTo(new THREE.Vector3(r.pos.x, r.pos.y + 1.2, r.pos.z))
 if (d < 1.1 && t < bestT) { bestRival = r; bestT = t; }
 }
 if (bestRival) {
-const killed = damageRivalRef(bestRival, 34, p.pos.x, p.pos.z);
+const killed = damageRivalRef(bestRival, def.dmg, p.pos.x, p.pos.z);
 S.stats.shotsHit += 1;
 if (killed) {
 S.hud?.toast('Rival down.');
@@ -155,6 +162,7 @@ const closest = S.camera.position.clone().add(dir.clone().multiplyScalar(t));
 if (closest.distanceTo(new THREE.Vector3(ped.pos.x, ped.pos.y + 1.1, ped.pos.z)) < 1.0) {
 knockPed(ped, p.pos.x, p.pos.z);
 S.wanted = Math.max(S.wanted, 2);
+addRespect(-5);
 S.hud?.toast('You hit a civilian! The police are coming.');
 return;
 }
@@ -177,7 +185,9 @@ export function setDamageRival(fn) { damageRivalRef = fn; }
 
 function startReload() {
 const p = S.player;
-if (p.reloadTimer > 0 || S.ammo === TUNE.magSize) return;
+const def = WEAPONS[S.weapon];
+if (!def || p.reloadTimer > 0) return;
+if (S.weapon === 'smg' ? S.smgAmmo === def.mag : S.ammo === def.mag) return;
 p.reloadTimer = 1.3;
 S.audio?.reload();
 }
@@ -355,7 +365,10 @@ p.punchCooldown -= dt;
 updateRockets(dt);
 if (p.reloadTimer > 0) {
 p.reloadTimer -= dt;
-if (p.reloadTimer <= 0) S.ammo = TUNE.magSize;
+if (p.reloadTimer <= 0) {
+if (S.weapon === 'smg') S.smgAmmo = WEAPONS.smg.mag;
+else if (S.weapon === 'pistol') S.ammo = TUNE.magSize;
+}
 }
 S.playerFiredTimer -= dt;
 S.godTimer -= dt;
@@ -394,6 +407,7 @@ playerCollide(p);
 
 
 if (input.pressed.has('Space') && p.grounded && !S.swimming) {
+input.pressed.delete('Space');
 p.vy = TUNE.jumpVel;
 p.grounded = false;
 S.audio?.jump();
@@ -414,25 +428,27 @@ p.grounded = true;
 
 
 p.aiming = input.mouseDown && S.weapon !== 'fists' && !S.swimming;
-p.gun.visible = (p.aiming || S.ammo < TUNE.magSize) && S.weapon === 'pistol';
+const curMag = S.weapon === 'smg' ? WEAPONS.smg.mag : TUNE.magSize;
+const curAmmo = S.weapon === 'smg' ? S.smgAmmo : S.ammo;
+p.gun.visible = (p.aiming || curAmmo < curMag) && (S.weapon === 'pistol' || S.weapon === 'smg');
 p.rpgTube.visible = S.weapon === 'rpg';
 if (p.aiming) {
 
 const look = new THREE.Vector3();
 S.camera.getWorldDirection(look);
 p.heading = dampAngle(p.heading, Math.atan2(-look.z, look.x), 16, dt);
-if (S.weapon === 'pistol') shoot();
+if (S.weapon === 'pistol' || S.weapon === 'smg') shoot();
 else fireRpg();
 }
 if (input.mouseClicked && S.weapon === 'fists' && !S.swimming && p.punchCooldown <= 0) {
 p.punchCooldown = 0.45;
 punch();
 }
-if (input.pressed.has('KeyR')) startReload();
+if (input.pressed.has('KeyR')) { input.pressed.delete('KeyR'); startReload(); }
 
 
-if (input.pressed.has('KeyF')) tryEnterCar();
-if (input.pressed.has('KeyE')) S.onInteract?.();
+if (input.pressed.has('KeyF')) { input.pressed.delete('KeyF'); tryEnterCar(); }
+if (input.pressed.has('KeyE')) { input.pressed.delete('KeyE'); S.onInteract?.(); }
 
 
 const cars = [...S.traffic, ...S.police.map((pc) => pc.car)];
@@ -453,6 +469,7 @@ if (ped.down) continue;
 if (dist2D(ped.pos.x, ped.pos.z, S.driving.pos.x, S.driving.pos.z) < 2.4) {
 knockPed(ped, S.driving.pos.x, S.driving.pos.z);
 S.wanted = Math.max(S.wanted, 2);
+addRespect(-5);
 S.hud?.toast('You ran someone over! The police are coming.');
 S.shake = Math.min(0.6, S.shake + 0.2);
 S.audio?.thud(8);
@@ -497,9 +514,15 @@ car.throttle = a.y > 0 ? 1 : 0;
 car.brake = a.y < 0;
 if (a.y < 0 && car.speed < 1) car.throttle = -0.6;
 car.handbrake = input.keys.has('Space');
+const shiftHeld = input.keys.has('ShiftLeft') || input.keys.has('ShiftRight');
+car.nitroActive = !!(car.upg?.nitro && shiftHeld && Math.abs(car.speed) > 5);
+if (car.nitroActive && Math.random() < 0.5) {
+S.effects?.smoke(car.pos.x - Math.cos(car.heading) * 2.5, 0.8, car.pos.z + Math.sin(car.heading) * 2.5, 0x66aaff);
+}
 const targetSteer = a.x * 0.55;
 car.steer = damp(car.steer, targetSteer, 7, dt);
-if (input.pressed.has('KeyF')) exitCar();
+if (input.pressed.has('KeyF')) { input.pressed.delete('KeyF'); exitCar(); }
+if (input.pressed.has('KeyE')) { input.pressed.delete('KeyE'); S.onInteract?.(); }
 if (input.pressed.has('KeyH')) S.audio?.horn();
 
 if (Math.abs(car.speed) > 12) {

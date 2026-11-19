@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { WORLD, DISTRICTS, PALETTE, PLACES } from './config.js';
 import { S } from './state.js';
-import { makeRng, clamp, lerp, roadWave, roadWaveSlope } from './util.js';
+import { makeRng, clamp, lerp } from './util.js';
 import {
 makeFacadeSet, makeRoadTexture, makeSidewalkTexture, makeSandTexture,
 makeWaterTexture, makeGrassTexture, makeSignTexture, makeGlowTexture, makeContainerTexture,
@@ -92,18 +92,18 @@ const roadMat = new THREE.MeshLambertMaterial({ map: roadTex });
 const walkRibbonMat = new THREE.MeshLambertMaterial({ map: makeSidewalkTexture() });
 function ribbon(alongX, r, y, half, mat, uRep, vRep, follow) {
 const SEG = 80, pos = [], uv = [], idx = [];
-let arc = 0, ps = -240, pc = r + roadWave(-240);
+let arc = 0, ps = -240, pc = r;
 for (let i = 0; i <= SEG; i += 1) {
 const s = -240 + (i / SEG) * 480;
-const c = r + roadWave(s);
+const c = r;
 arc += Math.hypot(s - ps, c - pc); ps = s; pc = c;
-const sl = roadWaveSlope(s), L = Math.hypot(1, sl);
-const ox = follow ? sl * half / L : 0, oz = follow ? half / L : half;
-if (alongX) pos.push(s + ox, y, c - oz, s - ox, y, c + oz);
-else pos.push(c + oz, y, s - ox, c - oz, y, s + ox);
+// Straight grid: the road runs dead straight along its axis, so the
+// ribbon's edges are plain axis-aligned offsets of half the width.
+if (alongX) pos.push(s, y, c - half, s, y, c + half);
+else pos.push(c + half, y, s, c - half, y, s);
 const u = follow ? arc / 6 : i / SEG * uRep;
 uv.push(u, 0, u, vRep);
-if (i < SEG) { let hole = false; if (!alongX && follow) { const mz = s + 3, mx = r + roadWave(mz); for (const r2 of WORLD.roads) if (Math.abs(mz - r2 - roadWave(mx)) < 10.2) { hole = true; break; } } if (!hole) { const k = i * 2; idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); } }
+if (i < SEG) { let hole = false; if (!alongX && follow) { const mz = s + 3; for (const r2 of WORLD.roads) if (Math.abs(mz - r2) < 10.2) { hole = true; break; } } if (!hole) { const k = i * 2; idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); } }
 }
 const geo = new THREE.BufferGeometry();
 geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
@@ -127,22 +127,20 @@ for (const r of WORLD.roads) {
 for (let t = -234; t <= 234; t += 6) {
 let near = false;
 for (const r2 of WORLD.roads) if (Math.abs(t - r2) < 10) { near = true; break; }
-if (!near) { dashX.push([t, r + roadWave(t)]); dashZ.push([r + roadWave(t), t]); }
+if (!near) { dashX.push([t, r]); dashZ.push([r, t]); }
 }
 }
 const dashMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
 const dashGeoX = new THREE.BoxGeometry(3, 0.02, 0.45);
 const dashMeshX = new THREE.InstancedMesh(dashGeoX, dashMat, dashX.length);
 dashX.forEach(([x, z], i) => {
-tmpQuat.setFromEuler(new THREE.Euler(0, -Math.atan(roadWaveSlope(x)), 0));
-tmpMatrix.compose(tmpPos.set(x, 0.12, z), tmpQuat, tmpScale.set(1, 1, 1));
+tmpMatrix.compose(tmpPos.set(x, 0.12, z), tmpQuat.identity(), tmpScale.set(1, 1, 1));
 dashMeshX.setMatrixAt(i, tmpMatrix);
 });
 const dashGeoZ = new THREE.BoxGeometry(0.45, 0.02, 3);
 const dashMeshZ = new THREE.InstancedMesh(dashGeoZ, dashMat, dashZ.length);
 dashZ.forEach(([x, z], i) => {
-tmpQuat.setFromEuler(new THREE.Euler(0, Math.atan(roadWaveSlope(z)), 0));
-tmpMatrix.compose(tmpPos.set(x, 0.12, z), tmpQuat, tmpScale.set(1, 1, 1));
+tmpMatrix.compose(tmpPos.set(x, 0.12, z), tmpQuat.identity(), tmpScale.set(1, 1, 1));
 dashMeshZ.setMatrixAt(i, tmpMatrix);
 });
 scene.add(dashMeshX, dashMeshZ);

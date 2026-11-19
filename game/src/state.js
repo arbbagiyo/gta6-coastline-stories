@@ -25,6 +25,10 @@ armor: 0,
 cash: 250,
 weapon: 'pistol',
 ammo: 12,
+smgAmmo: 30,
+respect: 0,
+garage: null,
+roadblocks: [],
 playerFiredTimer: 0,
 godTimer: 0,
 
@@ -102,6 +106,14 @@ onBusted: null,
 save: null,
 };
 
+export function addRespect(n) {
+S.respect = clamp(S.respect + n, 0, 100);
+}
+
+function clamp(v, lo, hi) {
+return v < lo ? lo : v > hi ? hi : v;
+}
+
 export function resetRunState() {
 
 
@@ -109,6 +121,10 @@ S.health = 100;
 S.armor = 0;
 S.cash = 250;
 S.ammo = 12;
+S.smgAmmo = 30;
+S.respect = 0;
+S.garage = null;
+S.roadblocks = [];
 S.wanted = 0;
 S.wantedTimer = 0;
 S.hiddenTimer = 0;

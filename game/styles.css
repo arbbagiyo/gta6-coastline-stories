@@ -2,3 +2,18 @@
 #mission-panel,#police-panel{position:absolute;left:18px;max-width:300px;background:rgba(10,14,26,.72);border-radius:8px;padding:9px 13px;text-shadow:0 2px 6px rgba(0,0,0,.8);}#mission-panel{top:16px;border:1px solid rgba(255,201,77,.55);}#police-panel{top:122px;border:1px solid rgba(77,138,255,.6);font-size:12.5px;line-height:1.6;}#police-panel b{color:#8ab8ff;letter-spacing:1px;}#mp-title{font-size:14px;font-weight:800;color:#ffc94d;}#mp-stage{font-size:12px;opacity:.85;}#mp-next{font-size:13px;font-weight:600;margin-top:2px;}#weapon-slots{display:flex;gap:6px;justify-content:flex-end;margin-bottom:6px;}#weapon-slots span{background:rgba(10,14,26,.72);border:1px solid rgba(255,255,255,.3);border-radius:6px;padding:4px 9px;font-size:13px;font-weight:700;}#weapon-slots span.sel{border-color:#ffc94d;color:#ffc94d;}#cast-row{display:flex;gap:10px;justify-content:center;margin:14px 0 0;}#cast-row figure{width:64px;}#cast-row img{width:56px;height:56px;border-radius:50%;border:2px solid rgba(255,201,77,.7);}#cast-row figcaption{font-size:11px;opacity:.85;margin-top:3px;}
 #map-inner{max-width:880px;width:95vw;}#map-cols{display:flex;gap:16px;margin-top:12px;text-align:left;}#map-canvas{border:2px solid rgba(255,255,255,.35);border-radius:10px;max-width:56vw;max-height:64vh;}#map-side{flex:1;min-width:200px;}#map-side h2{font-size:14px;color:#ffc94d;letter-spacing:2px;margin:6px 0;}#map-jobs .mj{font-size:14px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.12);}#map-jobs .mj.done{color:#8fe89a;}#map-jobs .mj.active{color:#ffc94d;}#map-stats{font-size:13.5px;line-height:1.6;}#map-legend{font-size:12px;opacity:.7;margin-top:10px;line-height:1.6;}
 #map-screen{background:#07091a;}
+
+#respect-fill{height:100%;width:0%;background:linear-gradient(90deg,#b45fd6,#e08aff);transition:width .15s;}
+#respect-label{font-size:12px;font-weight:800;letter-spacing:1px;color:#e08aff;text-align:right;margin-bottom:6px;text-shadow:0 2px 6px rgba(0,0,0,.8);}
+#weapon-wheel{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:grid;grid-template-columns:1fr 1fr;gap:10px;pointer-events:auto;z-index:6;}
+#weapon-wheel .wheel-title{grid-column:1/-1;text-align:center;font-size:13px;font-weight:800;letter-spacing:2px;color:#ffc94d;text-shadow:0 2px 6px rgba(0,0,0,.9);}
+#weapon-wheel button{cursor:pointer;font-size:16px;font-weight:700;padding:14px 22px;border-radius:10px;border:1px solid rgba(255,255,255,.4);background:rgba(10,14,26,.85);color:#fff;}
+#weapon-wheel button.sel{border-color:#ffc94d;color:#ffc94d;background:rgba(60,44,8,.9);}
+#garage-panel{pointer-events:auto;}
+#garage-panel .screen-inner{max-width:640px;text-align:left;}
+#garage-car{margin-top:14px;font-size:15px;}
+#garage-upgrades{margin-top:10px;}
+#garage-upgrades .gu-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 10px;border:1px solid rgba(255,255,255,.2);border-radius:8px;margin-bottom:8px;font-size:14px;background:rgba(255,255,255,.05);}
+#garage-upgrades .gu-desc{font-size:12px;opacity:.75;}
+#garage-upgrades .gu-buy{cursor:pointer;font-size:13px;font-weight:700;padding:7px 14px;border-radius:7px;}
+#garage-upgrades .gu-buy:disabled{opacity:.4;cursor:default;}

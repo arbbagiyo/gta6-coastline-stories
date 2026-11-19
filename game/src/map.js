@@ -1,7 +1,7 @@
 import { WORLD, DISTRICTS, PLACES } from './config.js';
 import { S } from './state.js';
 import { jobStatuses } from './missions.js';
-import { formatMoney, roadWave } from './util.js';
+import { formatMoney } from './util.js';
 
 let open = false, timer = 0;
 export const isMapOpen = () => open;
@@ -33,12 +33,8 @@ g.fillStyle = '#2a6a8a'; g.fillRect(0, 0, X(WORLD.oceanEdge), W);
 g.fillStyle = '#d8c890'; g.fillRect(X(WORLD.oceanEdge), 0, X(WORLD.beachEdge) - X(WORLD.oceanEdge), W);
 g.strokeStyle = '#555a60'; g.lineWidth = 3;
 for (const r of WORLD.roads) {
-g.beginPath();
-for (let s = -240; s <= 240; s += 12) { const x = X(r + roadWave(s)), y = Y(s); if (s === -240) g.moveTo(x, y); else g.lineTo(x, y); }
-g.stroke();
-g.beginPath();
-for (let s = -240; s <= 240; s += 12) { const x = X(s), y = Y(r + roadWave(s)); if (s === -240) g.moveTo(x, y); else g.lineTo(x, y); }
-g.stroke();
+g.beginPath(); g.moveTo(X(r), Y(-240)); g.lineTo(X(r), Y(240)); g.stroke();
+g.beginPath(); g.moveTo(X(-240), Y(r)); g.lineTo(X(240), Y(r)); g.stroke();
 }
 g.fillStyle = 'rgba(255,255,255,0.9)'; g.font = '11px sans-serif';
 for (const d of DISTRICTS) g.fillText(d.name, X(d.x0) + 6, Y(d.z0) + 16);
@@ -64,5 +60,5 @@ g.restore();
 }
 function fillSide() {
 document.getElementById('map-jobs').innerHTML = jobStatuses().map((j) => `<div class="mj ${j.status}">${j.status === 'done' ? '✓' : j.status === 'active' ? '▶' : '🔒'} ${j.title}</div>`).join('') + `<div class="mj">✦ Courier runs: ${S.stats.couriersDone} · Shells: ${S.shellsFound}/10</div>`;
-document.getElementById('map-stats').textContent = `Cash ${formatMoney(S.cash)} · Respect ${S.stats.missionsDone * 20 + S.stats.couriersDone * 5} · Cars stolen ${S.stats.carsStolen} · Rivals down ${S.stats.rivalsDown} · Max wanted ${S.stats.maxWanted}★`;
+document.getElementById('map-stats').textContent = `Cash ${formatMoney(S.cash)} · Respect ${S.respect} · Cars stolen ${S.stats.carsStolen} · Rivals down ${S.stats.rivalsDown} · Max wanted ${S.stats.maxWanted}★`;
 }

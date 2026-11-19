@@ -28,8 +28,10 @@
     <div id="vitals">
       <div class="bar"><div id="health-fill"></div></div>
       <div class="bar armor"><div id="armor-fill"></div></div>
+      <div class="bar respect"><div id="respect-fill"></div></div>
+      <div id="respect-label">RESPECT 0</div>
     </div>
-    <div id="weapon-slots"><span id="slot-fists">1 ✊</span><span id="slot-pistol" class="sel">2 🔫 <b id="slot-ammo">12/12</b></span><span id="slot-rpg">3 🚀 <b id="slot-rockets">6</b></span></div>
+    <div id="weapon-slots"><span id="slot-fists">1 ✊</span><span id="slot-pistol" class="sel">2 🔫 <b id="slot-ammo">12/12</b></span><span id="slot-rpg">3 🚀 <b id="slot-rockets">6</b></span><span id="slot-smg">4 <b id="slot-smg-ammo">0/30</b></span></div>
     <div id="ammo-label">🔫 12 / 12</div>
     <div id="speed-wrap" class="hidden"><span id="speed-label">0 km/h</span></div>
     <div id="radio-wrap" class="hidden">📻 <span id="radio-label">TIDE FM 88.5</span></div>
@@ -50,6 +52,28 @@
   </div>
   <div id="crosshair" class="hidden"><span></span></div>
   <div id="damage-flash" class="hidden"></div>
+  <div id="weapon-wheel" class="hidden">
+    <div class="wheel-title">WEAPON WHEEL — hold Tab, click or press 1–4</div>
+    <button data-w="fists">✊ FISTS</button>
+    <button data-w="pistol">🔫 PISTOL</button>
+    <button data-w="rpg">🚀 RPG</button>
+    <button data-w="smg">🔫 SMG</button>
+  </div>
+  <div id="garage-panel" class="screen hidden">
+    <div class="screen-inner">
+      <div class="logo-kicker">SOLMARINA · TIDEWATER GARAGE · ESC TO LEAVE</div>
+      <h1 class="small">GARAGE</h1>
+      <p class="tagline">Store your ride, tune it up, take it out.</p>
+      <div id="garage-car"></div>
+      <div id="garage-upgrades"></div>
+      <div class="btn-row">
+        <button id="btn-garage-store" class="btn">Store current car</button>
+        <button id="btn-garage-take" class="btn">Take car out</button>
+        <button id="btn-garage-close" class="btn primary">Done</button>
+      </div>
+    </div>
+  </div>
+</div>
   <div id="dialogue" class="hidden">
     <div id="dlg-avatar">L</div>
     <div id="dlg-body">
@@ -76,9 +100,9 @@
 </div>
 <div id="screen-start" class="screen">
   <div class="screen-inner">
-    <div class="logo-kicker">SOLMARINA · A COASTAL CITY · FIVE STORIES</div>
+    <div class="logo-kicker">SOLMARINA · A COASTAL CITY · EIGHT STORIES</div>
     <h1>COASTLINE<br>STORIES</h1>
-    <p class="tagline">You came home to lie low. The coast had other plans. Five missions,
+    <p class="tagline">You came home to lie low. The coast had other plans. Eight missions,
       one ledger, and every cop in Solmarina — drive it, tail it, shoot it, outrun it.</p>
     <div class="btn-row">
       <button id="btn-start" class="btn primary">▶ New Game</button>
@@ -98,7 +122,8 @@
       <div><b>R</b> Reload</div>
       <div><b>Q</b> Radio station</div>
       <div><b>M</b> City map</div>
-      <div><b>1 / 2 / 3</b> Fists / pistol / RPG</div>
+      <div><b>1 / 2 / 3 / 4</b> Fists / pistol / RPG / SMG</div>
+      <div><b>Tab</b> Weapon wheel</div>
       <div><b>N</b> Mute</div>
       <div><b>Esc / P</b> Pause</div>
       <div><b>H</b> Horn</div>
@@ -121,7 +146,8 @@
       <div><b>F</b> Enter / exit car / boat</div>
       <div><b>E</b> Talk / interact</div>
       <div><b>Mouse btn</b> Shoot</div>
-      <div><b>1 / 2 / 3</b> Fists / pistol / RPG</div>
+      <div><b>1 / 2 / 3 / 4</b> Fists / pistol / RPG / SMG</div>
+      <div><b>Tab</b> Weapon wheel</div>
       <div><b>Q</b> Radio station</div>
       <div><b>Esc / P</b> Resume</div>
     </div>

@@ -10,8 +10,6 @@ return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 
 export const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 export const lerp = (a, b, t) => a + (b - a) * t;
-export const roadWave = (s) => 2 * Math.sin(s * Math.PI / 60);
-export const roadWaveSlope = (s) => (Math.PI / 30) * Math.cos(s * Math.PI / 60);
 export const damp = (a, b, lambda, dt) => lerp(a, b, 1 - Math.exp(-lambda * dt));
 
 export function angleDelta(a, b) {

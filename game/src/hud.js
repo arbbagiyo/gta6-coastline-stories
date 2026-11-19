@@ -4,6 +4,7 @@ import { S } from './state.js';
 import { clamp, formatClock, formatMoney } from './util.js';
 import { input } from './input.js';
 import { getPortrait } from './characters.js';
+import { MISSION_TOTAL } from './missions.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -39,6 +40,19 @@ $('btn-title-sound').textContent = muted ? 'Sound: OFF' : 'Sound: ON';
 $('screen-start').classList.remove('hidden');
 const cast = $('cast-row');
 if (cast) cast.innerHTML = ['lena', 'theo', 'rosa', 'ana', 'vince', 'marco'].map((w) => `<figure><img src="${getPortrait(w)}" alt=""><figcaption>${CHARACTERS[w].name.replace('Det. ', '').split(' ')[0]}</figcaption></figure>`).join('');
+for (const b of document.querySelectorAll('#weapon-wheel [data-w]')) {
+b.addEventListener('click', () => {
+S.weapon = b.dataset.w;
+S.audio?.click();
+});
+}
+}
+
+showWheel(open) {
+$('weapon-wheel').classList.toggle('hidden', !open);
+if (open) {
+for (const b of document.querySelectorAll('#weapon-wheel [data-w]')) b.classList.toggle('sel', b.dataset.w === S.weapon);
+}
 }
 
 showScreen(name) {
@@ -54,7 +68,7 @@ $('hud').classList.toggle('hidden', name === 'start');
 setSaveInfo(hasSave, info) {
 $('btn-continue').classList.toggle('hidden', !hasSave);
 if (hasSave && info) {
-$('save-info').textContent = `Save found — mission ${info.missionIndex + 1}/5, ${formatMoney(info.cash)}, ${info.shellsFound}/10 shells`;
+$('save-info').textContent = `Save found — mission ${info.missionIndex + 1}/${MISSION_TOTAL}, ${formatMoney(info.cash)}, ${info.shellsFound}/10 shells`;
 }
 }
 
@@ -219,6 +233,14 @@ ctx.fillStyle = '#4d8aff';
 ctx.beginPath(); ctx.arc(bx2, by2, 3.5, 0, Math.PI * 2); ctx.fill();
 }
 
+for (const rb of S.roadblocks || []) {
+for (const car of rb.cars) {
+const [rx2, ry2] = toMap(car.pos.x, car.pos.z);
+ctx.fillStyle = '#ff5a3c';
+ctx.beginPath(); ctx.arc(rx2, ry2, 3.5, 0, Math.PI * 2); ctx.fill();
+}
+}
+
 ctx.translate(W / 2, H / 2);
 ctx.rotate(-S.player.heading + Math.PI / 2);
 ctx.fillStyle = '#fff';
@@ -268,13 +290,17 @@ if (this.damageTimer <= 0) $('damage-flash').classList.add('hidden');
 }
 if (S.screen !== 'play') return;
 
+this.showWheel(input.keys.has('Tab') && !S.dialogue);
+
 $('health-fill').style.width = `${clamp(S.health, 0, 100)}%`;
 $('armor-fill').style.width = `${clamp(S.armor, 0, 100)}%`;
+$('respect-fill').style.width = `${clamp(S.respect, 0, 100)}%`;
+$('respect-label').textContent = `RESPECT ${S.respect}`;
 $('cash-label').textContent = formatMoney(S.cash);
 $('clock-label').textContent = formatClock(S.dayTime);
 const district = S.districtAt ? S.districtAt(S.player.pos.x, S.player.pos.z) : null;
 $('district-label').textContent = district ? district.name : 'Solmarina';
-$('ammo-label').textContent = S.weapon === 'pistol' ? `🔫 ${S.ammo} / ${TUNE.magSize}` : S.weapon === 'rpg' ? `🚀 ${S.player ? S.player.rockets : 0}` : '—';
+$('ammo-label').textContent = S.weapon === 'pistol' ? `🔫 ${S.ammo} / ${TUNE.magSize}` : S.weapon === 'smg' ? `🔫 ${S.smgAmmo} / 30` : S.weapon === 'rpg' ? `🚀 ${S.player ? S.player.rockets : 0}` : '—';
 if (S.driving) {
 const kmh = Math.round(Math.abs(S.driving.speed) * 3.6);
 $('speed-label').textContent = `${kmh} km/h`;
@@ -308,31 +334,34 @@ const mp = $('mission-panel');
 const m = S.mission;
 if (m) {
 const st = m.def.steps[Math.min(m.stepIdx, m.def.steps.length - 1)] || {};
-$('mp-title').textContent = `JOB ${S.missionIndex + 1}/5 — ${m.def.title}`;
+$('mp-title').textContent = `JOB ${S.missionIndex + 1}/${MISSION_TOTAL} — ${m.def.title}`;
 $('mp-stage').textContent = m.def.steps.length ? `Stage ${m.stepIdx + 1}/${m.def.steps.length}` : 'Combat';
 $('mp-next').textContent = st.label || 'Talk it through';
-} else if (S.missionIndex >= 5) {
+} else if (S.missionIndex >= MISSION_TOTAL) {
 $('mp-title').textContent = 'FREE ROAM';
 $('mp-stage').textContent = 'All jobs complete';
 $('mp-next').textContent = 'Courier jobs · shells on the beach';
 } else {
 $('mp-title').textContent = 'NEXT JOB';
-$('mp-stage').textContent = `Job ${S.missionIndex + 1}/5 awaits`;
+$('mp-stage').textContent = `Job ${S.missionIndex + 1}/${MISSION_TOTAL} awaits`;
 $('mp-next').textContent = 'Follow the green beacon';
 }
 mp.classList.remove('hidden');
 const pp = $('police-panel');
 const ds = (x, z) => Math.round(Math.hypot(x - S.player.pos.x, z - S.player.pos.z));
-if (S.wanted > 0 && (S.police.length || S.heli)) {
+if (S.wanted > 0 && (S.police.length || S.heli || (S.roadblocks && S.roadblocks.length))) {
 const rows = S.police.slice(0, 4).map((u, i) => `UNIT ${i + 1} · ${ds(u.car.pos.x, u.car.pos.z)}m · ${u.hiddenTimer > 0 ? 'SEARCHING' : 'PURSUIT'}`);
 if (S.heli) rows.push(`HELI · ${ds(S.heli.pos.x, S.heli.pos.z)}m · AIRBORNE`);
+for (const rb of S.roadblocks || []) rows.push(`ROADBLOCK · ${ds(rb.x, rb.z)}m · SEALED ROAD`);
 $('pp-list').innerHTML = rows.join('<br>');
 pp.classList.remove('hidden');
 } else pp.classList.add('hidden');
 $('slot-fists').classList.toggle('sel', S.weapon === 'fists');
 $('slot-pistol').classList.toggle('sel', S.weapon === 'pistol');
+$('slot-smg').classList.toggle('sel', S.weapon === 'smg');
 $('slot-rpg').classList.toggle('sel', S.weapon === 'rpg');
 $('slot-ammo').textContent = `${S.ammo}/${TUNE.magSize}`;
+$('slot-smg-ammo').textContent = `${S.smgAmmo}/30`;
 $('slot-rockets').textContent = `${S.player ? S.player.rockets : 0}`;
 this.drawMinimap();
 

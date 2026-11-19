@@ -13,7 +13,7 @@ lastY: 0,
 pressed: new Set(),
 };
 
-const GAME_KEYS = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ShiftLeft', 'ShiftRight', 'KeyF', 'KeyE', 'KeyR', 'KeyQ', 'KeyM', 'KeyN', 'KeyP', 'KeyH', 'Escape', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
+const GAME_KEYS = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ShiftLeft', 'ShiftRight', 'KeyF', 'KeyE', 'KeyR', 'KeyQ', 'KeyM', 'KeyN', 'KeyP', 'KeyH', 'Escape', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Digit1', 'Digit2', 'Digit3', 'Digit4', 'Tab'];
 
 export function initInput(canvas, callbacks) {
 window.addEventListener('keydown', (e) => {

@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 import { PLACES, CHARACTERS, TUNE } from './config.js';
-import { S } from './state.js';
-import { clamp, damp, angleDelta, dist2D, makeRng, roadWave } from './util.js';
+import { S, addRespect } from './state.js';
+import { clamp, damp, angleDelta, dist2D, makeRng } from './util.js';
 import { createCar, updateCarPhysics } from './vehicles.js';
 import { spawnRival, clearRivals, damageRival } from './characters.js';
 import { setWanted, clearPolice } from './police.js';
+import { garageNearby, openGarage } from './garage.js';
 
 const GOLD = 0xffc94d;
 
@@ -34,7 +35,7 @@ const MISSIONS = [
 id: 'first-delivery',
 title: 'First Delivery',
 giver: 'theo',
-start: { x: PLACES.theoGarage.x, z: PLACES.theoGarage.z },
+start: { x: PLACES.theoGarage.x + 10, z: PLACES.theoGarage.z }, // forecourt — clear of the garage prompt radius
 brief: 'Theo needs a package run across town. No questions, no stops.',
 steps: [
 { type: 'dialogue', lines: [
@@ -140,7 +141,89 @@ steps: [
 ] },
 ],
 },
+{
+id: 'garage-wars',
+title: 'Garage Wars',
+giver: 'theo',
+respect: 25,
+start: { x: PLACES.theoGarage.x + 10, z: PLACES.theoGarage.z }, // forecourt — clear of the garage prompt radius
+brief: 'Marco\'s crew is torching chop shops. Jack a fresh ride and hold the garage.',
+steps: [
+{ type: 'dialogue', lines: [
+{ who: 'theo', text: 'Marco\'s boys torched two chop shops this week. Mine is next, Lena — I can feel it.' },
+{ who: 'lena', text: 'Then we need a fast car and a welcome party. What do you have?' },
+{ who: 'theo', text: 'Nothing with four wheels. Jack something on the street, bring it here — and when they come, we hold the line.' },
+] },
+{ type: 'carjack', label: 'Jack a car on the street — press F near moving traffic' },
+{ type: 'goto', label: 'Bring it to Tidewater Garage', x: PLACES.theoGarage.x, z: PLACES.theoGarage.z, radius: 9 },
+{ type: 'eliminate', label: 'Hold the garage — Marco\'s crew is here', spawns: [
+{ x: -30, z: 30 }, { x: -42, z: 42 }, { x: -28, z: 44 },
+] },
+{ type: 'dialogue', lines: [
+{ who: 'theo', text: 'She is yours now, Lena. Park her here anytime — I will keep her tuned. Fifteen hundred.' },
+{ who: 'lena', text: 'One garage, one coast. We are getting somewhere, Theo.' },
+] },
+],
+},
+{
+id: 'ledgers-price',
+title: 'The Ledger\'s Price',
+giver: 'rosa',
+respect: 40,
+start: { x: PLACES.rustyAnchor.x, z: PLACES.rustyAnchor.z },
+brief: 'Marco is buying muscle at the plaza tonight. Crash the meeting and take the buy money.',
+steps: [
+{ type: 'dialogue', lines: [
+{ who: 'rosa', text: 'Vince\'s ledger names a buyer, Lena. Marco meets him at the plaza tonight — cash in hand.' },
+{ who: 'lena', text: 'A meeting like that needs crashing. What is the take?' },
+{ who: 'rosa', text: 'The buy money. All of it. The plaza, tonight. Do not let Marco walk out with it.' },
+] },
+{ type: 'goto', label: 'Get to Plaza del Sol', x: PLACES.plaza.x, z: PLACES.plaza.z, radius: 10 },
+{ type: 'eliminate', label: 'Crash the meeting — take them all down', spawns: [
+{ x: 8, z: 6 }, { x: -8, z: 4 }, { x: 4, z: -8 }, { x: -4, z: -10 }, { x: 10, z: -4 },
+] },
+{ type: 'pickup', label: 'Take the buy money', x: 10, z: 0 },
+{ type: 'goto', label: 'Get the money to the safehouse', x: PLACES.safehouse.x, z: PLACES.safehouse.z, radius: 9 },
+{ type: 'dialogue', lines: [
+{ who: 'rosa', text: 'Eighteen hundred, and Marco\'s buyer is shopping somewhere else tonight. The coast is talking, Lena — and it likes what it hears.' },
+{ who: 'lena', text: 'Then let it talk. I am not done yet.' },
+] },
+],
+},
+{
+id: 'king-of-the-coast',
+title: 'King of the Coast',
+giver: 'theo',
+respect: 55,
+start: { x: PLACES.safehouse.x, z: PLACES.safehouse.z },
+brief: 'Marco runs the whole coast now. Roadblocks everywhere — run them, end it at the marina.',
+steps: [
+{ type: 'dialogue', lines: [
+{ who: 'theo', text: 'Marco owns the coast now, Lena. Every crew, every dock. He sails from the marina tonight.' },
+{ who: 'ana', text: '(phone) Miss Maris. This is Detective Park. Marco\'s boat leaves the marina at midnight — and every unit I have is on the roads. Do not make me regret this call.' },
+{ who: 'lena', text: 'Then it ends tonight. One coast, one king — and it is not Marco.' },
+] },
+{ type: 'wanted', level: 4, label: 'The whole PD is out — roadblocks on every road!' },
+{ type: 'enterCar', label: 'Get in Theo\'s coupe', x: PLACES.safehouse.x + 6, z: PLACES.safehouse.z, car: { type: 'coupe', color: 0x2e6bc2, heading: Math.PI } },
+{ type: 'goto', label: 'Run the roadblocks — race to the marina', x: PLACES.marinaDock.x, z: PLACES.marinaDock.z, radius: 12 },
+{ type: 'eliminate', label: 'Clear the dock — Marco and his crew are waiting', spawns: [
+{ x: -220, z: -128 }, { x: -226, z: -112 }, { x: -214, z: -118 }, { x: -228, z: -132 }, { x: -222, z: -106 },
+{ x: -224, z: -122, boss: true },
+] },
+{ type: 'pickup', label: 'Take Marco\'s ledger', x: -226, z: -120 },
+{ type: 'wanted', level: 4, label: 'The whole coast is coming for you — roadblocks ahead' },
+{ type: 'loseWanted', label: 'Lose the heat — the coast is watching' },
+{ type: 'goto', label: 'Meet Rosa at the lighthouse', x: PLACES.lighthouse.x, z: PLACES.lighthouse.z, radius: 10 },
+{ type: 'dialogue', lines: [
+{ who: 'rosa', text: 'Marco\'s ledger, Vince\'s ledger — the whole coast in one bag. You did it, Lena. Solmarina is yours.' },
+{ who: 'lena', text: 'Ours, Rosa. I just drive it.' },
+{ who: 'theo', text: '(phone) The garage is yours whenever, Lena. The coast has a king now — a queen, actually.' },
+] },
+],
+},
 ];
+
+export const MISSION_TOTAL = MISSIONS.length;
 
 let startBeacon = null;
 let stepBeacon = null;
@@ -196,6 +279,11 @@ S.scene.add(startBeacon);
 export function startMission() {
 const def = nextMissionDef();
 if (!def || S.mission) return;
+if (def.respect && S.respect < def.respect) {
+S.hud?.toast(`🔒 ${def.title} needs Respect ${def.respect} — yours is ${S.respect}. Do jobs, win fights, earn the coast.`);
+S.audio?.click();
+return;
+}
 clearRivals();
 S.mission = { def, stepIdx: 0, combat: false, data: {} };
 if (startBeacon) { S.scene.remove(startBeacon); startBeacon = null; }
@@ -232,8 +320,10 @@ S.scene.add(caseMesh);
 pickupMesh = caseMesh;
 } else if (step.type === 'eliminate') {
 S.mission.combat = true;
-for (const s of step.spawns) spawnRival(s.x, s.z, { health: 60 });
+for (const s of step.spawns) spawnRival(s.x, s.z, { health: s.boss ? 150 : 60, damage: s.boss ? 10 : 7, boss: !!s.boss });
 S.hud?.setObjective(`${step.label} (0/${step.spawns.length})`);
+} else if (step.type === 'carjack') {
+S.hud?.setObjective(step.label);
 } else if (step.type === 'follow') {
 startCourier();
 } else if (step.type === 'wanted') {
@@ -254,6 +344,7 @@ function completeMission() {
 const def = S.mission.def;
 const reward = TUNE.missionReward[S.missionIndex] || 500;
 S.cash += reward;
+addRespect(10);
 S.missionIndex += 1;
 S.stats.missionsDone += 1;
 if (S.player) S.player.rockets = 6;
@@ -356,8 +447,8 @@ advanceStep();
 return;
 }
 }
-const tx = Math.abs(dx) > Math.abs(dz) ? wp.x : wp.x + roadWave(courierCar.pos.z);
-const tz = Math.abs(dx) > Math.abs(dz) ? wp.z + roadWave(courierCar.pos.x) : wp.z;
+const tx = wp.x;
+const tz = wp.z;
 const want = Math.atan2(-(tz - courierCar.pos.z), tx - courierCar.pos.x);
 courierCar.steer = damp(courierCar.steer, clamp(angleDelta(courierCar.heading, want) * 2.2, -0.55, 0.55), 5, dt);
 const turnErr = Math.abs(angleDelta(courierCar.heading, want));
@@ -417,8 +508,13 @@ if (!S.mission && !S.dialogue && nextMissionDef()) {
 const def = nextMissionDef();
 const d = dist2D(S.player.pos.x, S.player.pos.z, def.start.x, def.start.z);
 if (d < 6) {
+if (def.respect && S.respect < def.respect) {
+S.hud?.setPrompt(`🔒 ${def.title} — needs Respect ${def.respect} (yours ${S.respect})`);
+S.nearMissionStart = false;
+} else {
 S.hud?.setPrompt(`[E] Start mission: ${def.title}`);
 S.nearMissionStart = true;
+}
 } else if (S.nearMissionStart) {
 S.nearMissionStart = false;
 S.hud?.setPrompt('');
@@ -426,6 +522,7 @@ S.hud?.setPrompt('');
 }
 updateCourierJob(dt);
 updateShells(dt);
+updateGaragePrompt();
 if (!S.mission || S.dialogue) return;
 const step = currentStep();
 if (!step) return;
@@ -438,6 +535,10 @@ if (d < step.radius) advanceStep();
 } else if (step.type === 'enterCar') {
 if (S.driving) advanceStep();
 else S.hud?.setObjective(`${step.label} — press F near a car`);
+} else if (step.type === 'carjack') {
+if (S.driving && S.driving.jacked) advanceStep();
+else if (S.driving) S.hud?.setObjective(`${step.label} — that is not a jacked car, get out and take one off the street`);
+else S.hud?.setObjective(`${step.label} — press F near moving traffic`);
 } else if (step.type === 'eliminate') {
 const left = S.rivals.filter((r) => !r.down).length;
 S.hud?.setObjective(`${step.label} (${step.spawns.length - left}/${step.spawns.length})`);
@@ -465,6 +566,10 @@ if (S.nearMissionStart && !S.mission) {
 S.nearMissionStart = false;
 S.hud?.setPrompt('');
 startMission();
+return;
+}
+if (S.nearGarage && !S.mission) {
+openGarage();
 return;
 }
 if (S.mission && currentStep()?.type === 'pickup' && S.nearPickup) {
@@ -502,6 +607,19 @@ S.scene.add(b);
 jobBeacon = b;
 }
 
+function updateGaragePrompt() {
+if (S.mission || S.dialogue) return;
+if (garageNearby()) {
+if (!S.nearGarage) {
+S.nearGarage = true;
+S.hud?.setPrompt(S.driving ? '[E] Tidewater Garage — store this car' : '[E] Tidewater Garage');
+}
+} else if (S.nearGarage) {
+S.nearGarage = false;
+if (!S.nearMissionStart && !S.nearCourier) S.hud?.setPrompt('');
+}
+}
+
 function startCourierJob() {
 const rng = makeRng((Math.random() * 1e9) | 0);
 const dest = JOB_DESTINATIONS[(rng() * JOB_DESTINATIONS.length) | 0];
@@ -532,6 +650,7 @@ const d = dist2D(S.player.pos.x, S.player.pos.z, S.courier.x, S.courier.z);
 S.hud?.setObjective(`Courier: ${S.courier.name} — ${Math.round(d)}m — ${Math.max(0, S.courier.timeLeft).toFixed(0)}s`);
 if (d < 9) {
 S.cash += TUNE.courierPay;
+addRespect(3);
 S.stats.jobsDone += 1;
 S.hud?.showBanner('Delivery Complete!', `+ $${TUNE.courierPay}`);
 S.audio?.missionPass();
@@ -576,6 +695,7 @@ s.taken = true;
 S.scene.remove(s.mesh);
 S.shellsFound += 1;
 S.cash += TUNE.shellPay;
+addRespect(1);
 S.hud?.toast(`Shell found! ${S.shellsFound}/${TUNE.shellCount} — +$${TUNE.shellPay}`);
 S.audio?.pickup();
 S.save?.();

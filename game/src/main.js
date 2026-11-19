@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 import { WORLD, PLACES, TUNE } from './config.js';
-import { S, resetRunState } from './state.js';
+import { S, resetRunState, addRespect } from './state.js';
 import { createCity } from './city.js';
 import { createTraffic, updateVehicles } from './vehicles.js';
 import { createPedestrians, updatePedestrians, updateRivals, damageRival, clearRivals } from './characters.js';
 import { createPlayer, updatePlayer, damagePlayer, setDamageRival } from './player.js';
 import { updatePolice, clearPolice, setWanted } from './police.js';
-import { updateMission, showStartBeacon, courierDepotBeacon, createShells, restoreShells, onInteract, onRivalDown, restartMissionAfterIncident } from './missions.js';
+import { updateMission, showStartBeacon, courierDepotBeacon, createShells, restoreShells, onInteract, onRivalDown, restartMissionAfterIncident, MISSION_TOTAL } from './missions.js';
 import { Effects } from './effects.js';
 import { AudioEngine } from './audio.js';
 import { HUD } from './hud.js';
@@ -15,6 +15,7 @@ import { updateCamera, addShake, resetCamera } from './camera.js';
 import { saveGame, loadGame, applySave, hasSave } from './save.js';
 import { stageShotIfRequested, updateShots } from './shots.js';
 import { toggleMap, closeMap, updateMap, isMapOpen } from './map.js';
+import { initGarage, spawnGarageCar, isGarageOpen, closeGarage } from './garage.js';
 
 const canvas = document.getElementById('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -51,6 +52,8 @@ S.save = saveGame;
 createTraffic();
 createPedestrians();
 createPlayer(PLACES.safehouse.x, PLACES.safehouse.z, Math.PI * 0.75);
+initGarage();
+spawnGarageCar();
 createShells();
 courierDepotBeacon();
 
@@ -74,8 +77,10 @@ if (code === 'KeyQ' && S.screen === 'play') S.audio.nextStation();
 if (code === 'Digit1' && S.screen === 'play') S.weapon = 'fists';
 if (code === 'Digit2' && S.screen === 'play') S.weapon = 'pistol';
 if (code === 'Digit3' && S.screen === 'play') S.weapon = 'rpg';
+if (code === 'Digit4' && S.screen === 'play') S.weapon = 'smg';
 if ((code === 'Escape' || code === 'KeyP') && S.screen === 'play') {
-if (isMapOpen()) closeMap();
+if (isGarageOpen()) closeGarage();
+else if (isMapOpen()) closeMap();
 else pauseGame();
 } else if ((code === 'Escape' || code === 'KeyP') && S.screen === 'pause') resumeGame();
 },
@@ -98,7 +103,7 @@ resetRunState();
 S.screen = 'play';
 hud.showScreen('none');
 showStartBeacon();
-if (S.missionIndex >= 5) {
+if (S.missionIndex >= MISSION_TOTAL) {
 hud.setObjective('');
 hud.toast('Free roam — courier jobs at the depot, shells on the beach.');
 } else {
@@ -154,7 +159,8 @@ S.cash = Math.max(0, S.cash - 200);
 hud.toast('You woke up at St. Marisol Hospital. -$200 medical bill.');
 } else {
 S.cash = Math.max(0, S.cash - 300);
-hud.toast('Released from the station. -$300 in fines.');
+addRespect(-10);
+hud.toast('Released from the station. -$300 in fines. Respect -10.');
 }
 if (hadMission) {
 restartMissionAfterIncident();
@@ -261,6 +267,7 @@ S.effects.update(dt);
 
 if (S.dialogue) return;
 if (isMapOpen()) return;
+if (isGarageOpen()) return;
 updatePlayer(dt);
 if (!S.driving) S.audio?.setEngine(0, false);
 updateVehicles(dt);

@@ -67,8 +67,10 @@ g.fillRect(rng() * w, rng() * h, 2, 2);
 }
 
 g.fillStyle = '#c8c8c8';
-g.fillRect(6, 0, 3, h);
-g.fillRect(w - 9, 0, 3, h);
+// Edge lines run along the road: in the ribbon's UVs, v spans the width
+// and u runs the length, so a stripe of constant v is a line down the road.
+g.fillRect(0, 6, w, 3);
+g.fillRect(0, h - 9, w, 3);
 });
 t.wrapS = THREE.RepeatWrapping;
 t.wrapT = THREE.RepeatWrapping;
